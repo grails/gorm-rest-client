@@ -1,6 +1,7 @@
 package org.grails.datastore.rx.rest.http.test
 
 import groovy.transform.CompileStatic
+import io.netty.buffer.ByteBuf
 import io.netty.handler.codec.http.DefaultFullHttpRequest
 import io.netty.handler.codec.http.HttpMethod
 import io.netty.handler.codec.http.HttpVersion
@@ -121,16 +122,16 @@ class TestHttpServerRequestBuilder {
             }
         }
 
-//      // TODO: Fix reading body
-//            def emptyBody = Observable.just(Unpooled.copiedBuffer("", charset))
-//            ByteBuf expectedBody = (ByteBuf)expected.content.switchIfEmpty(emptyBody).toBlocking().first()
-//            def actualBody = (ByteBuf)actual.content.switchIfEmpty(emptyBody).toBlocking().first()
-//            if( expectedBody.hasArray() && !actualBody.hasArray() ) {
-//                assert false : "Expected content ${expectedBody.toString()} but got none"
-//            }
-//            else {
-//                assert expectedBody.toString(charset) == actualBody.toString(charset)
-//            }
+        if ( expected.contentLengthSet ) {
+            ByteBuf expectedBody = (ByteBuf)expected.content.toBlocking().first()
+            def actualBody = (ByteBuf)actual.content.toBlocking().first()
+            if( expectedBody.hasArray() && !actualBody.hasArray() ) {
+                assert false : "Expected content ${expectedBody.toString()} but got none"
+            }
+            else {
+                assert expectedBody.toString(charset) == actualBody.toString(charset)
+            }
+        }
 
     }
 }
