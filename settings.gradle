@@ -1,0 +1,5 @@
+include "grails-datastore-gorm-rx-rest-client"
+        // , "boot-plugin", 'grails2-plugin', 'grails-plugin'
+
+// findProject(':boot-plugin').name = 'gorm-neo4j-spring-boot'
+
