@@ -1,20 +1,15 @@
 package org.grails.datastore.rx
 
 import groovy.transform.CompileStatic
-import io.netty.buffer.ByteBuf
-import io.reactivex.netty.protocol.http.client.HttpClient
-import io.reactivex.netty.protocol.http.server.HttpServer
-import io.reactivex.netty.protocol.http.server.HttpServerRequest
-import io.reactivex.netty.protocol.http.server.HttpServerResponse
-import io.reactivex.netty.protocol.http.server.RequestHandler
 import org.grails.datastore.bson.json.JsonWriter
 import org.grails.datastore.rx.rest.RxRestDatastoreClient
-import org.grails.datastore.rx.rest.http.server.HttpServerResponseBuilder
-import rx.Observable
+import org.grails.datastore.rx.rest.http.netty.HttpRequestBuilder
+import org.grails.datastore.rx.rest.http.test.HttpTestServer
+import org.grails.datastore.rx.rest.http.test.TestHttpServerRequestBuilder
+import spock.lang.AutoCleanup
 import spock.lang.Shared
 import spock.lang.Specification
 
-import java.nio.charset.Charset
 import java.text.DateFormat
 import java.text.SimpleDateFormat
 
@@ -22,10 +17,8 @@ import java.text.SimpleDateFormat
 abstract class RxGormSpec extends Specification {
 
     @Shared RxRestDatastoreClient client
-
-    @Shared HttpServer server
-    @Shared Closure serverResponse = null
     @Shared DateFormat dateFormat
+    @Shared @AutoCleanup HttpTestServer httpTestServer
 
     void setupSpec() {
         dateFormat = new SimpleDateFormat(JsonWriter.ISO_8601)
@@ -33,36 +26,21 @@ abstract class RxGormSpec extends Specification {
         dateFormat.setTimeZone(UTC)
 
         def classes = getDomainClasses()
-        server = HttpServer.newServer()
-        SocketAddress serverAddress = startServer()
-        client = new RxRestDatastoreClient(serverAddress, classes as Class[])
+        httpTestServer = new HttpTestServer()
+        client = new RxRestDatastoreClient(httpTestServer.socketAddress, classes as Class[])
     }
 
     void cleanupSpec() {
         client?.close()
-        server.shutdown()
     }
 
-    void withResponse(@DelegatesTo(HttpServerResponseBuilder) Closure callable) {
-        this.serverResponse = callable
+    void cleanup() {
+        httpTestServer.reset()
     }
 
-    public SocketAddress startServer() {
-        server.start(new RequestHandler() {
-            @Override
-            Observable<Void> handle(HttpServerRequest request, HttpServerResponse response) {
-                HttpServerResponseBuilder builder = new HttpServerResponseBuilder(response, Charset.forName("UTF-8"))
-                if(serverResponse != null) {
-                    serverResponse.setDelegate(builder)
-                    serverResponse.call()
-                }
-                return builder.response.flushOnlyOnReadComplete()
-            }
-        });
-        return server.getServerAddress();
+    TestHttpServerRequestBuilder expect(@DelegatesTo(HttpRequestBuilder) Closure callable) {
+        httpTestServer.expect callable
     }
-
-
 
     abstract List<Class> getDomainClasses()
 }

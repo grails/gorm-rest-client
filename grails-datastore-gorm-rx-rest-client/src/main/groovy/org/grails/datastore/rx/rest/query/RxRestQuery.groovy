@@ -7,7 +7,10 @@ import org.grails.datastore.rx.rest.RxRestDatastoreClient
 import rx.Observable
 
 /**
- * Created by graemerocher on 14/06/16.
+ *
+ *
+ * @author Graeme Rocher
+ * @since 6.0
  */
 @CompileStatic
 class RxRestQuery<T> implements RxQuery<T> {

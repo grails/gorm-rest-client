@@ -15,7 +15,10 @@ class GetMethodSpec extends RxGormSpec {
 
     void "Test get an entity using a GET request"() {
         given:"A canned response"
-        withResponse {
+        def mock = expect {
+            uri '/person/1'
+        }
+        .respond {
             json {
                 id 1
                 name "Fred"
@@ -29,6 +32,7 @@ class GetMethodSpec extends RxGormSpec {
         Person p = observable.toBlocking().first()
 
         then:"The result is correct"
+        mock.verify()
         p.name == "Fred"
         p.age == 10
         dateFormat.format(p.dateOfBirth) == "2006-07-09T00:00+0000"
