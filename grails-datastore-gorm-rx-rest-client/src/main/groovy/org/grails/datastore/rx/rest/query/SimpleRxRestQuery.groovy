@@ -6,7 +6,12 @@ import io.netty.buffer.ByteBufHolder
 import io.netty.buffer.ByteBufInputStream
 import io.netty.util.concurrent.BlockingOperationException
 import io.reactivex.netty.protocol.http.client.HttpClient
+import io.reactivex.netty.protocol.http.client.HttpClientRequest
 import io.reactivex.netty.protocol.http.client.HttpClientResponse
+import org.bson.AbstractBsonReader
+import org.bson.BsonType
+import org.bson.codecs.Codec
+import org.grails.datastore.bson.codecs.BsonPersistentEntityCodec
 import org.grails.datastore.bson.json.JsonReader
 import org.grails.datastore.mapping.model.PersistentEntity
 import org.grails.datastore.mapping.query.Query
@@ -16,6 +21,7 @@ import org.grails.datastore.rx.rest.RxRestDatastoreClient
 import rx.Observable
 import rx.Observer
 import rx.observables.AsyncOnSubscribe
+import rx.subjects.PublishSubject
 
 /**
  * An implementation of {@link RxQuery} for REST that only supports the {@link org.grails.datastore.mapping.query.Query.Equals} constraint, converting each one into a request parameter
@@ -37,11 +43,10 @@ class SimpleRxRestQuery<T> extends Query implements RxQuery<T> {
 
     @Override
     Observable<T> findAll() {
-
-
         HttpClient httpClient = datastoreClient.createHttpClient()
-        String uri = datastoreClient.pathResolver.getPath(entity.getJavaClass())
-
+        Class type = entity.getJavaClass()
+        String uri = datastoreClient.pathResolver.getPath(type)
+        Codec codec = datastoreClient.getMappingContext().get(type, datastoreClient.codecRegistry)
 
         def allCriteria = criteria.criteria
         if(!allCriteria.isEmpty()) {
@@ -74,10 +79,12 @@ class SimpleRxRestQuery<T> extends Query implements RxQuery<T> {
             }
         }
 
-        httpClient.createGet(uri)
+        HttpClientRequest httpClientRequest = httpClient.createGet(uri)
+
+        httpClientRequest
                 .switchMap { HttpClientResponse response ->
             response.getContent()
-        }.map { Object object ->
+        }.switchMap { Object object ->
             ByteBuf byteBuf
             if (object instanceof ByteBuf) {
                 byteBuf = (ByteBuf) object
@@ -87,40 +94,52 @@ class SimpleRxRestQuery<T> extends Query implements RxQuery<T> {
                 throw new IllegalStateException("Received invalid response object: $object")
             }
 
-            def reader = new InputStreamReader(new ByteBufInputStream(byteBuf))
-            def jsonReader = new JsonReader(reader)
-            try {
-                jsonReader.readStartArray()
+            byteBuf.retain()
 
-                jsonReader.readEndArray()
-            } finally {
-                reader.close()
-                byteBuf.release()
-            }
+            long readCount = 0
+            Observable.create(new AsyncOnSubscribe<JsonReader, T>() {
+
+                @Override
+                protected JsonReader generateState() {
+                    def reader = new InputStreamReader(new ByteBufInputStream(byteBuf))
+                    def jsonReader = new JsonReader(reader)
+                    jsonReader.readStartArray()
+                    return jsonReader
+                }
+
+                @Override
+                protected void onUnsubscribe(JsonReader reader) {
+                    reader.close()
+                    byteBuf.release()
+                    super.onUnsubscribe(reader)
+                }
+
+                @Override
+                protected JsonReader next(JsonReader jsonReader, long requested, Observer<Observable<? extends T>> observer) {
+
+                    BsonType bsonType = jsonReader.readBsonType()
+                    boolean endOfDocument = bsonType == BsonType.END_OF_DOCUMENT
+                    if(readCount < requested && !endOfDocument) {
+                        T nextEntity = codec.decode(jsonReader, BsonPersistentEntityCodec.DEFAULT_DECODER_CONTEXT)
+                        readCount++
+                        observer.onNext(Observable.just(nextEntity))
+                    }
+
+                    if(endOfDocument) {
+                        observer.onCompleted()
+                    }
+
+                    return jsonReader
+                }
+            })
 
         }
 
-        Observable.create(new AsyncOnSubscribe() {
-            @Override
-            protected Object generateState() {
-                return null
-            }
-
-            @Override
-            protected Object next(Object state, long requested, Observer observer) {
-                return null
-            }
-
-            @Override
-            void call(Object o) {
-
-            }
-        })
     }
 
     @Override
     Observable<T> singleResult() {
-        return null
+        return findAll().first()
     }
 
     @Override
