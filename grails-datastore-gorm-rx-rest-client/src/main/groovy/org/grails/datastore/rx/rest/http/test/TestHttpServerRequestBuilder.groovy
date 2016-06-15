@@ -1,20 +1,46 @@
 package org.grails.datastore.rx.rest.http.test
 
 import groovy.transform.CompileStatic
-import io.netty.buffer.ByteBuf
-import io.netty.buffer.Unpooled
 import io.netty.handler.codec.http.DefaultFullHttpRequest
 import io.netty.handler.codec.http.HttpMethod
 import io.netty.handler.codec.http.HttpVersion
 import io.reactivex.netty.protocol.http.server.HttpServerRequest
 import org.grails.datastore.rx.rest.http.server.HttpServerRequestBuilder
 import org.grails.datastore.rx.rest.http.server.HttpServerResponseBuilder
-import rx.Observable
 
 import java.nio.charset.Charset
-
 /**
- * Created by graemerocher on 15/06/16.
+ * Allows for mocking and testing usages of {@link AsyncHttpBuilder} in application code
+ *
+ * <p>Below is an example:
+ * <pre class="code">
+ *   client.expect {
+ *       uri '/foo/bar'
+ *       method "POST"
+ *       contentType 'application/json'
+ *       json {
+ *           title "Ping"
+ *       }
+ *   }.respond {
+ *       created()
+ *       json {
+ *           title "Pong"
+ *       }
+ *   }
+ *
+ *    Observable<Person> p = client.post("https://localhost:8080/foo/bar") {
+ *        contentType 'application/json'
+ *        json {
+ *            title "Ping"
+ *        }
+ *    }
+ *
+ *    assert client.verify()
+ * </pre>
+ *
+ *
+ * @author Graeme Rocher
+ * @since 1.0
  */
 @CompileStatic
 class TestHttpServerRequestBuilder {

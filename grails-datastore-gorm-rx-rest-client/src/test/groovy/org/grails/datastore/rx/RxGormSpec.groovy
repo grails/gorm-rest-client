@@ -2,10 +2,7 @@ package org.grails.datastore.rx
 
 import groovy.transform.CompileStatic
 import org.grails.datastore.bson.json.JsonWriter
-import org.grails.datastore.rx.rest.RxRestDatastoreClient
-import org.grails.datastore.rx.rest.http.netty.HttpRequestBuilder
-import org.grails.datastore.rx.rest.http.test.HttpTestServer
-import org.grails.datastore.rx.rest.http.test.TestHttpServerRequestBuilder
+import org.grails.datastore.rx.rest.test.TestRxRestDatastoreClient
 import spock.lang.AutoCleanup
 import spock.lang.Shared
 import spock.lang.Specification
@@ -16,9 +13,8 @@ import java.text.SimpleDateFormat
 @CompileStatic
 abstract class RxGormSpec extends Specification {
 
-    @Shared RxRestDatastoreClient client
+    @Shared @AutoCleanup TestRxRestDatastoreClient client
     @Shared DateFormat dateFormat
-    @Shared @AutoCleanup HttpTestServer httpTestServer
 
     void setupSpec() {
         dateFormat = new SimpleDateFormat(JsonWriter.ISO_8601)
@@ -26,20 +22,11 @@ abstract class RxGormSpec extends Specification {
         dateFormat.setTimeZone(UTC)
 
         def classes = getDomainClasses()
-        httpTestServer = new HttpTestServer()
-        client = new RxRestDatastoreClient(httpTestServer.socketAddress, classes as Class[])
-    }
-
-    void cleanupSpec() {
-        client?.close()
+        client = new TestRxRestDatastoreClient(classes as Class[])
     }
 
     void cleanup() {
-        httpTestServer.reset()
-    }
-
-    TestHttpServerRequestBuilder expect(@DelegatesTo(HttpRequestBuilder) Closure callable) {
-        httpTestServer.expect callable
+        client.reset()
     }
 
     abstract List<Class> getDomainClasses()
