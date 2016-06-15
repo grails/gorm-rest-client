@@ -12,4 +12,8 @@ class Person implements RxEntity<Person> {
     String name
     Integer age
     Date dateOfBirth
+
+    static mapping = {
+        uri "/people"
+    }
 }

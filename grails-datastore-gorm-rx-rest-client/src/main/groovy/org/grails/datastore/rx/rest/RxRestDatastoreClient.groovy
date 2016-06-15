@@ -4,6 +4,9 @@ import groovy.transform.CompileStatic
 import io.netty.buffer.ByteBuf
 import io.netty.buffer.ByteBufHolder
 import io.netty.buffer.ByteBufInputStream
+import io.netty.buffer.Unpooled
+import io.netty.handler.codec.base64.Base64
+import io.netty.handler.codec.http.HttpHeaderNames
 import io.netty.handler.codec.http.HttpResponseStatus
 import io.reactivex.netty.client.ConnectionProviderFactory
 import io.reactivex.netty.client.Host
@@ -29,6 +32,7 @@ import org.grails.datastore.rx.rest.api.RxRestGormStaticApi
 import org.grails.datastore.rx.rest.config.RestClientMappingContext
 import org.grails.datastore.rx.rest.paths.DefaultResourcePathResolver
 import org.grails.datastore.rx.rest.paths.ResourcePathResolver
+import org.grails.datastore.rx.rest.query.SimpleRxRestQuery
 import org.grails.gorm.rx.api.RxGormEnhancer
 import org.grails.gorm.rx.api.RxGormStaticApi
 import org.grails.gorm.rx.events.AutoTimestampEventListener
@@ -37,6 +41,7 @@ import org.springframework.core.convert.converter.Converter
 import org.springframework.core.env.PropertyResolver
 import rx.Observable
 
+import java.nio.charset.Charset
 import java.text.SimpleDateFormat
 
 /**
@@ -50,6 +55,7 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient<ConnectionProvider
 
     public static final String HOST = "grails.gorm.rest.host"
     public static final String PORT = "grails.gorm.rest.port"
+    public static final String CHARSET = "grails.gorm.rest.charset"
     public static final String OPTIONS = "grails.gorm.rest.options"
     public static final String USERNAME = "grails.gorm.rest.username"
     public static final String PASSWORD = "grails.gorm.rest.password"
@@ -59,13 +65,18 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient<ConnectionProvider
     final Observable<Host> defaultClientHost
     final ResourcePathResolver pathResolver
     final CodecRegistry codecRegistry
+    final String username
+    final String password
+    final Charset charset
 
     RxRestDatastoreClient(SocketAddress serverAddress, PropertyResolver configuration, RestClientMappingContext mappingContext) {
         super(mappingContext)
 
         this.defaultClientHost = Observable.just(new Host(serverAddress))
         this.pathResolver = new DefaultResourcePathResolver(mappingContext)
-
+        this.username = configuration.getProperty(USERNAME, String, null)
+        this.password = configuration.getProperty(PASSWORD, String, null)
+        this.charset = Charset.forName( configuration.getProperty(CHARSET, "UTF-8"))
         def pool = new PoolConfig()
         // TODO: populate pool configuration
         connectionProviderFactory = SingleHostPoolingProviderFactory.create(pool)
@@ -154,8 +165,13 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient<ConnectionProvider
         HttpClient httpClient = createHttpClient()
         String uri = pathResolver.getPath(entity.getJavaClass(), id)
 
-        httpClient
-                .createGet(uri)
+
+        HttpClientRequest httpClientRequest = httpClient
+                            .createGet(uri)
+
+        prepareRequest(httpClientRequest)
+
+        httpClientRequest
                 .switchMap { HttpClientResponse response ->
             response.getContent()
         }.map { Object object ->
@@ -212,17 +228,21 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient<ConnectionProvider
         }
     }
 
-    protected HttpClient<ByteBuf, ByteBuf> createHttpClient() {
+    protected void prepareRequest(HttpClientRequest<ByteBuf, ByteBuf> httpClientRequest) {
+        if (username != null && password != null) {
+            String usernameAndPassword = "$username:$password"
+            def encoded = Base64.encode(Unpooled.wrappedBuffer(usernameAndPassword.bytes)).toString(charset)
+            httpClientRequest.addHeader HttpHeaderNames.AUTHORIZATION, "Basic $encoded".toString()
+        }
+    }
+
+    HttpClient<ByteBuf, ByteBuf> createHttpClient() {
         return HttpClient.newClient(connectionProviderFactory, defaultClientHost)
     }
 
     @Override
     Observable<Number> batchWrite(BatchOperation operation) {
         return null
-    }
-
-    protected static RestClientMappingContext createMappingContext(PropertyResolver configuration, Class... classes) {
-        return new RestClientMappingContext(classes)
     }
 
     @Override
@@ -239,12 +259,16 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient<ConnectionProvider
 
     @Override
     Query createEntityQuery(PersistentEntity entity, QueryState queryState) {
-        return null
+        return new SimpleRxRestQuery(this, entity, queryState)
     }
 
     @Override
     ConnectionProviderFactory getNativeInterface() {
         return connectionProviderFactory
+    }
+
+    protected static RestClientMappingContext createMappingContext(PropertyResolver configuration, Class... classes) {
+        return new RestClientMappingContext(classes)
     }
 
     @Override

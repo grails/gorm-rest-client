@@ -16,7 +16,7 @@ class GetMethodSpec extends RxGormSpec {
     void "Test get an entity using a GET request"() {
         given:"A canned response"
         def mock = client.expect {
-            uri '/person/1'
+            uri '/people/1'
         }
         .respond {
             json {
