@@ -7,7 +7,7 @@ import spock.lang.Ignore
 /**
  * Created by graemerocher on 15/06/16.
  */
-class FindAllMethodSpec extends RxGormSpec {
+class FindAllSpec extends RxGormSpec {
     @Override
     List<Class> getDomainClasses() {
         [Person]

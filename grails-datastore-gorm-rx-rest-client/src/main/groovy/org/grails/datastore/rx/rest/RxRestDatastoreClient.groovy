@@ -1,7 +1,14 @@
 package org.grails.datastore.rx.rest
 
 import groovy.transform.CompileStatic
+import groovy.util.logging.Slf4j
 import io.netty.buffer.ByteBuf
+import io.netty.buffer.ByteBufHolder
+import io.netty.buffer.ByteBufInputStream
+import io.netty.buffer.ByteBufOutputStream
+import io.netty.buffer.Unpooled
+import io.netty.handler.codec.base64.Base64
+import io.netty.handler.codec.http.HttpHeaderNames
 import io.netty.handler.codec.http.HttpResponseStatus
 import io.reactivex.netty.client.ConnectionProviderFactory
 import io.reactivex.netty.client.Host
@@ -10,7 +17,10 @@ import io.reactivex.netty.client.pool.SingleHostPoolingProviderFactory
 import io.reactivex.netty.protocol.http.client.HttpClient
 import io.reactivex.netty.protocol.http.client.HttpClientRequest
 import io.reactivex.netty.protocol.http.client.HttpClientResponse
+import org.bson.codecs.Codec
 import org.bson.codecs.configuration.CodecRegistry
+import org.grails.datastore.bson.codecs.BsonPersistentEntityCodec
+import org.grails.datastore.bson.json.JsonReader
 import org.grails.datastore.bson.json.JsonWriter
 import org.grails.datastore.gorm.events.ConfigurableApplicationEventPublisher
 import org.grails.datastore.mapping.core.DatastoreUtils
@@ -22,6 +32,8 @@ import org.grails.datastore.rx.batch.BatchOperation
 import org.grails.datastore.rx.query.QueryState
 import org.grails.datastore.rx.rest.api.RxRestGormStaticApi
 import org.grails.datastore.rx.rest.config.RestClientMappingContext
+import org.grails.datastore.rx.rest.config.RestEndpointPersistentEntity
+import org.grails.datastore.rx.rest.exceptions.HttpClientException
 import org.grails.datastore.rx.rest.paths.DefaultResourcePathResolver
 import org.grails.datastore.rx.rest.paths.ResourcePathResolver
 import org.grails.datastore.rx.rest.query.SimpleRxRestQuery
@@ -32,6 +44,8 @@ import org.grails.gorm.rx.events.DomainEventListener
 import org.springframework.core.convert.converter.Converter
 import org.springframework.core.env.PropertyResolver
 import rx.Observable
+import rx.Subscriber
+import rx.functions.Func2
 
 import java.nio.charset.Charset
 import java.text.SimpleDateFormat
@@ -42,6 +56,7 @@ import java.text.SimpleDateFormat
  * @since 6.0
  */
 @CompileStatic
+@Slf4j
 class RxRestDatastoreClient extends AbstractRxDatastoreClient<ConnectionProviderFactory> {
 
     public static final String SETTING_HOST = "grails.gorm.rest.host"
@@ -168,7 +183,109 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient<ConnectionProvider
 
     @Override
     Observable<Number> batchWrite(BatchOperation operation) {
-        return null
+        HttpClient httpClient = createHttpClient()
+        List<Observable> observables = []
+
+        for(PersistentEntity entity in operation.inserts.keySet()) {
+            Map<Serializable, BatchOperation.EntityOperation> entityOperationMap = operation.inserts.get(entity)
+            Class type = entity.getJavaClass()
+            String uri = pathResolver.getPath(type)
+            Codec codec = getCodecRegistry().get(type)
+            String contentType = ((RestEndpointPersistentEntity) entity).getMapping().getMappedForm().contentType
+
+            for(BatchOperation.EntityOperation entityOp in entityOperationMap.values()) {
+
+                Observable postObservable = httpClient
+                        .                               createPost(uri)
+                postObservable = postObservable.setHeader( HttpHeaderNames.CONTENT_TYPE, contentType )
+                postObservable = prepareRequest(postObservable)
+                postObservable.writeContent(
+                    Observable.create({ Subscriber<ByteBuf> subscriber ->
+                        ByteBuf byteBuf = Unpooled.buffer()
+                        try {
+                            def writer = new OutputStreamWriter(new ByteBufOutputStream(byteBuf), charset)
+                            def jsonWriter = new JsonWriter(writer)
+                            codec.encode(jsonWriter, entityOp.object, BsonPersistentEntityCodec.DEFAULT_ENCODER_CONTEXT)
+
+                            subscriber.onNext(byteBuf)
+                        } catch (Throwable e) {
+                            log.error "Error encoding object [$entityOp.object] to JSON: $e.message", e
+                            subscriber.onError(e)
+                        }
+                        finally {
+                            subscriber.onCompleted()
+                        }
+
+                    } as Observable.OnSubscribe<ByteBuf>)
+                )
+                postObservable = postObservable.map { HttpClientResponse response ->
+                    return new ResponseAndEntity(uri, response, entity, entityOp.object, codec)
+                }
+                observables.add(postObservable)
+            }
+        }
+        if(observables.isEmpty()) {
+            return Observable.just((Number)0L)
+        }
+        else {
+            return (Observable<Number>)Observable.concatEager(observables)
+                    .switchMap { ResponseAndEntity responseAndEntity ->
+                        HttpClientResponse response = responseAndEntity.response
+                        HttpResponseStatus status = response.status
+                        if(status == HttpResponseStatus.CREATED || status == HttpResponseStatus.OK) {
+                            if("application/json" == response.getHeader(HttpHeaderNames.CONTENT_TYPE)) {
+                                return Observable.combineLatest( Observable.just(responseAndEntity), response.content, { ResponseAndEntity res, Object content ->
+                                    res.content = content
+                                    return res
+                                } as Func2<ResponseAndEntity, Object, ResponseAndEntity>)
+                            }
+                            else {
+                                return Observable.just(responseAndEntity)
+                            }
+                        }
+                        else {
+                            throw new HttpClientException("Server returned error response: $status, reason: ${status.reasonPhrase()} for host ${response.hostHeader}")
+                        }
+                    }
+                    .reduce(0L, { Long count, ResponseAndEntity responseAndContent ->
+                        HttpClientResponse response = responseAndContent.response
+                        Object content = responseAndContent.content
+                        HttpResponseStatus status = response.status
+                        if(status == HttpResponseStatus.CREATED || status == HttpResponseStatus.OK) {
+                            count++
+                            if(content != null) {
+                                ByteBuf byteBuf
+                                if (content instanceof ByteBuf) {
+                                    byteBuf = (ByteBuf) content
+                                } else if (content instanceof ByteBufHolder) {
+                                    byteBuf = ((ByteBufHolder) content).content()
+                                } else {
+                                    throw new IllegalStateException("Received invalid response object: $content")
+                                }
+
+                                def reader = new InputStreamReader(new ByteBufInputStream(byteBuf))
+                                Codec codec = responseAndContent.codec
+                                try {
+                                    Object decoded = codec.decode(new JsonReader(reader), BsonPersistentEntityCodec.DEFAULT_DECODER_CONTEXT)
+
+                                    EntityReflector reflector = responseAndContent.entity.reflector
+                                    def identifier = reflector.getIdentifier(decoded)
+                                    reflector.setIdentifier(responseAndContent.object, identifier)
+                                }
+                                catch(Throwable e) {
+                                    log.error "Error querying [$responseAndContent.entity.name] object for URI [$responseAndContent.uri]", e
+                                    throw new HttpClientException("Error decoding entity ... from response: $e.message", e)
+                                }
+                                finally {
+                                    byteBuf.release()
+                                    reader.close()
+                                }
+
+                            }
+                        }
+                        return (Number)count
+            })
+        }
     }
 
     @Override
@@ -202,6 +319,7 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient<ConnectionProvider
         initDefaultEventListeners(eventPublisher)
     }
 
+
     protected void initDefaultConverters(RestClientMappingContext mappingContext) {
         TimeZone UTC = TimeZone.getTimeZone("UTC");
         mappingContext.converterRegistry.addConverter(new Converter<String, Date>() {
@@ -214,12 +332,6 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient<ConnectionProvider
         })
     }
 
-    protected void initDefaultEventListeners(ConfigurableApplicationEventPublisher configurableApplicationEventPublisher) {
-        configurableApplicationEventPublisher.addApplicationListener(new AutoTimestampEventListener(this))
-        configurableApplicationEventPublisher.addApplicationListener(new DomainEventListener(this))
-    }
-
-
     protected static InetSocketAddress createServerSocketAddress(PropertyResolver configuration) {
         new InetSocketAddress(configuration.getProperty(SETTING_HOST, String.class, "localhost"), configuration.getProperty(SETTING_PORT, Integer.class, 8080))
     }
@@ -228,8 +340,36 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient<ConnectionProvider
         return new RestClientMappingContext(classes)
     }
 
+    HttpClientRequest<ByteBuf, ByteBuf> prepareRequest(HttpClientRequest<ByteBuf, ByteBuf> httpClientRequest) {
+        if (username != null && password != null) {
+            String usernameAndPassword = "$username:$password"
+            def encoded = Base64.encode(Unpooled.wrappedBuffer(usernameAndPassword.bytes)).toString(charset)
+            httpClientRequest = httpClientRequest.addHeader HttpHeaderNames.AUTHORIZATION, "Basic $encoded".toString()
+        }
+        return httpClientRequest
+    }
+
     @Override
     RxGormStaticApi createStaticApi(PersistentEntity entity) {
         return new RxRestGormStaticApi(entity, this)
     }
+
+    private static class ResponseAndEntity {
+        final String uri
+        final HttpClientResponse response
+        final PersistentEntity entity
+        final Object object
+        final Codec codec
+
+        Object content
+
+        ResponseAndEntity(String uri, HttpClientResponse response, PersistentEntity entity, Object object, Codec codec) {
+            this.uri = uri
+            this.response = response
+            this.entity = entity
+            this.object = object
+            this.codec = codec
+        }
+    }
+
 }

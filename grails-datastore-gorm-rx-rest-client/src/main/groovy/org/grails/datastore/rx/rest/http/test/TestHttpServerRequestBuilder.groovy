@@ -118,7 +118,9 @@ class TestHttpServerRequestBuilder {
                 assert actualHeaderValue.startsWith("multipart/") : "expected a multipart request"
             }
             else {
-                assert "$headerName: $expectedHeaderValue" == "$headerName: $actualHeaderValue"
+                String expectedHeader = "$headerName: $expectedHeaderValue"
+                String actualHeader = "$headerName: $actualHeaderValue"
+                assert expectedHeader == actualHeader
             }
         }
 

@@ -79,7 +79,7 @@ class SimpleRxRestQuery<T> extends Query implements RxQuery<T> {
 
         HttpClientRequest httpClientRequest = httpClient.createGet(uri)
 
-        prepareRequest(httpClientRequest)
+        httpClientRequest = datastoreClient.prepareRequest(httpClientRequest)
 
         httpClientRequest
                 .switchMap { HttpClientResponse response ->
@@ -262,15 +262,5 @@ class SimpleRxRestQuery<T> extends Query implements RxQuery<T> {
         throw new UnsupportedOperationException("Batch operations are not supported")
     }
 
-    protected void prepareRequest(HttpClientRequest<ByteBuf, ByteBuf> httpClientRequest) {
-        String username = datastoreClient.username
-        String password = datastoreClient.password
-
-        if (username != null && password != null) {
-            String usernameAndPassword = "$username:$password"
-            def encoded = Base64.encode(Unpooled.wrappedBuffer(usernameAndPassword.bytes)).toString(datastoreClient.charset)
-            httpClientRequest.addHeader HttpHeaderNames.AUTHORIZATION, "Basic $encoded".toString()
-        }
-    }
 
 }

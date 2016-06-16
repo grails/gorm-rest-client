@@ -6,7 +6,7 @@ import rx.Observable
 /**
  * Created by graemerocher on 15/06/16.
  */
-class GetMethodSpec extends RxGormSpec {
+class GetSpec extends RxGormSpec {
 
     @Override
     List<Class> getDomainClasses() {
