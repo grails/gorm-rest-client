@@ -1,6 +1,7 @@
 package org.grails.datastore.rx.rest.http.test
 
 import groovy.transform.CompileStatic
+import groovy.util.logging.Slf4j
 import io.reactivex.netty.protocol.http.server.HttpServer
 import io.reactivex.netty.protocol.http.server.HttpServerRequest
 import io.reactivex.netty.protocol.http.server.HttpServerResponse
@@ -18,6 +19,7 @@ import java.nio.charset.Charset
  *
  */
 @CompileStatic
+@Slf4j
 class HttpTestServer implements Closeable {
 
     @Delegate TestHttpServerRequestBuilder requestBuilder = new TestHttpServerRequestBuilder()
@@ -37,7 +39,12 @@ class HttpTestServer implements Closeable {
                 HttpServerResponseBuilder builder = new HttpServerResponseBuilder(response, Charset.forName("UTF-8"))
                 if(requestBuilder.responseClosure != null) {
                     requestBuilder.responseClosure.setDelegate(builder)
-                    requestBuilder.responseClosure.call()
+                    try {
+                        requestBuilder.responseClosure.call()
+                    } catch (Throwable e) {
+                        log.error("respond block produced error: $e.message", e )
+                        throw e
+                    }
                 }
                 return builder.response.flushOnlyOnReadComplete()
             }

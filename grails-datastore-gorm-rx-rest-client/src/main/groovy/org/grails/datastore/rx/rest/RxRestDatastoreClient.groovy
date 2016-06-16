@@ -168,6 +168,9 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient<ConnectionProvider
                 if (status == HttpResponseStatus.NO_CONTENT || status == HttpResponseStatus.OK) {
                     count++
                 }
+                else {
+                    throw new HttpClientException("Server returned error response: $status, reason: ${status.reasonPhrase()} for host ${response.hostHeader}")
+                }
                 return (Number) count
             })
         }

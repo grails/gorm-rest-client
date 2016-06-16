@@ -20,4 +20,5 @@ class Endpoint extends Entity {
      * The content type returned by the server
      */
     String contentType = "application/json"
+
 }

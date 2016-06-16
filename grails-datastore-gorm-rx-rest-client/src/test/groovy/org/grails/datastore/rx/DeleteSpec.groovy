@@ -12,8 +12,25 @@ class DeleteSpec extends RxGormSpec {
         [Person]
     }
 
-    @NotYetImplemented
     void "Test the delete method produces a delete request"() {
+        given:"A canned response"
+        def mock = client.expect {
+            uri '/people/1'
+            method "DELETE"
+        }.respond {
+            noContent()
+        }
 
+        when:"A get request is issued"
+        def sw = new StringWriter()
+        def date = new Date().parse('yyyy/MM/dd', '1973/07/09')
+
+        Person p = new Person(name: "Fred", age: 10, dateOfBirth: date)
+        p.id = 1L
+        boolean deleted = p.delete().toBlocking().first()
+
+        then:"The result is correct"
+        mock.verify()
+        deleted
     }
 }

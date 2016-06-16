@@ -38,7 +38,7 @@ class SaveSpec extends RxGormSpec {
         def date = new Date().parse('yyyy/MM/dd', '1973/07/09')
 
         Person p = new Person(name: "Fred", age: 10, dateOfBirth: date)
-        p.save().toBlocking().first()
+        p = p.save().toBlocking().first()
 
         then:"The result is correct"
         mock.verify()
@@ -73,7 +73,7 @@ class SaveSpec extends RxGormSpec {
 
         Person p = new Person(name: "Fred", age: 10, dateOfBirth: date)
         p.id = 1L
-        p.save().toBlocking().first()
+        p = p.save().toBlocking().first()
 
         then:"The result is correct"
         mock.verify()

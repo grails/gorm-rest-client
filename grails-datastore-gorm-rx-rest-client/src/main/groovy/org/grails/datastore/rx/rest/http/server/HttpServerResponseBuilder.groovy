@@ -40,6 +40,17 @@ class HttpServerResponseBuilder {
     }
 
     /**
+     * Sets a NO_CONTENT status
+     *
+     * @return This builder
+     */
+
+    HttpServerResponseBuilder noContent() {
+        this.response.setStatus(HttpResponseStatus.NO_CONTENT)
+        return this
+    }
+
+    /**
      * Sets an UNAUTHORIZED status
      *
      * @return This builder
