@@ -47,4 +47,30 @@ class FindAllMethodSpec extends RxGormSpec {
         people[1].name == "Joe"
         people[1].age == 12
     }
+
+    void "Test the findAll method with id criterion returns a single object"() {
+        given:"A canned response"
+        def mock = client.expect {
+            uri '/people/1'
+        }
+        .respond {
+            json {
+                id 1
+                name "Fred"
+                age 10
+                dateOfBirth "2006-07-09T00:00+0000"
+            }
+        }
+
+        when:"A get request is issued"
+        Observable<Person> observable = Person.where {
+            id == 1L
+        }.find()
+        Person p = observable.toBlocking().first()
+
+        then:"The result is correct"
+        mock.verify()
+        p.name == "Fred"
+        p.age == 10
+        dateFormat.format(p.dateOfBirth) == "2006-07-09T00:00+0000"    }
 }

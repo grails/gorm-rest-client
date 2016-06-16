@@ -1,6 +1,7 @@
 package org.grails.datastore.rx.rest.query
 
 import groovy.transform.CompileStatic
+import groovy.util.logging.Slf4j
 import io.netty.buffer.ByteBuf
 import io.netty.buffer.ByteBufHolder
 import io.netty.buffer.ByteBufInputStream
@@ -20,6 +21,7 @@ import org.grails.datastore.rx.query.RxQuery
 import org.grails.datastore.rx.rest.RxRestDatastoreClient
 import rx.Observable
 import rx.Observer
+import rx.Subscriber
 import rx.observables.AsyncOnSubscribe
 import rx.subjects.PublishSubject
 
@@ -30,6 +32,7 @@ import rx.subjects.PublishSubject
  * @since 6.0
  */
 @CompileStatic
+@Slf4j
 class SimpleRxRestQuery<T> extends Query implements RxQuery<T> {
 
     final RxRestDatastoreClient datastoreClient
@@ -47,7 +50,7 @@ class SimpleRxRestQuery<T> extends Query implements RxQuery<T> {
         Class type = entity.getJavaClass()
         String uri = datastoreClient.pathResolver.getPath(type)
         Codec codec = datastoreClient.getMappingContext().get(type, datastoreClient.codecRegistry)
-
+        boolean singleResult = false
         def allCriteria = criteria.criteria
         if(!allCriteria.isEmpty()) {
 
@@ -57,20 +60,29 @@ class SimpleRxRestQuery<T> extends Query implements RxQuery<T> {
             for(Query.Criterion c in allCriteria) {
                 if(c instanceof Query.IdEquals) {
                     uri = "$uri/${((Query.IdEquals)c).getValue()}"
+                    singleResult = true
                 }
                 else if(c instanceof Query.Equals) {
                     Query.Equals equals = (Query.Equals)c
-                    if(first) {
-                        first = false
+
+                    if(equals.property == entity.getIdentity().name) {
+                        uri = "$uri/${equals.value}"
+                        singleResult = true
                     }
                     else {
-                        queryParameters.append("&")
-                    }
 
-                    queryParameters
-                            .append(equals.property)
-                            .append('=')
-                            .append(URLEncoder.encode(equals.value.toString(), datastoreClient.charset.toString()))
+                        if(first) {
+                            first = false
+                        }
+                        else {
+                            queryParameters.append("&")
+                        }
+
+                        queryParameters
+                                .append(equals.property)
+                                .append('=')
+                                .append(URLEncoder.encode(equals.value.toString(), datastoreClient.charset.toString()))
+                    }
                 }
             }
             def queryString = queryParameters.toString()
@@ -94,44 +106,70 @@ class SimpleRxRestQuery<T> extends Query implements RxQuery<T> {
                 throw new IllegalStateException("Received invalid response object: $object")
             }
 
-            byteBuf.retain()
-
-            long readCount = 0
-            Observable.create(new AsyncOnSubscribe<JsonReader, T>() {
-
-                @Override
-                protected JsonReader generateState() {
+            if(singleResult) {
+                return Observable.create( { Subscriber subscriber ->
                     def reader = new InputStreamReader(new ByteBufInputStream(byteBuf))
-                    def jsonReader = new JsonReader(reader)
-                    jsonReader.readStartArray()
-                    return jsonReader
-                }
-
-                @Override
-                protected void onUnsubscribe(JsonReader reader) {
-                    reader.close()
-                    byteBuf.release()
-                    super.onUnsubscribe(reader)
-                }
-
-                @Override
-                protected JsonReader next(JsonReader jsonReader, long requested, Observer<Observable<? extends T>> observer) {
-
-                    BsonType bsonType = jsonReader.readBsonType()
-                    boolean endOfDocument = bsonType == BsonType.END_OF_DOCUMENT
-                    if(readCount < requested && !endOfDocument) {
-                        T nextEntity = codec.decode(jsonReader, BsonPersistentEntityCodec.DEFAULT_DECODER_CONTEXT)
-                        readCount++
-                        observer.onNext(Observable.just(nextEntity))
+                    try {
+                        def decoded = codec.decode(new JsonReader(reader), BsonPersistentEntityCodec.DEFAULT_DECODER_CONTEXT)
+                        subscriber.onNext decoded
+                    }
+                    catch(Throwable e) {
+                        log.error "Error querying [$entity.name] object for URI [$uri]", e
+                        subscriber.onError(e)
+                    }
+                    finally {
+                        subscriber.onCompleted()
+                        byteBuf.release()
+                        reader.close()
                     }
 
-                    if(endOfDocument) {
-                        observer.onCompleted()
+                } as Observable.OnSubscribe)
+            }
+            else {
+                byteBuf.retain()
+                long readCount = 0
+                return Observable.create(new AsyncOnSubscribe<JsonReader, T>() {
+
+                    @Override
+                    protected JsonReader generateState() {
+                        def reader = new InputStreamReader(new ByteBufInputStream(byteBuf))
+                        def jsonReader = new JsonReader(reader)
+                        jsonReader.readStartArray()
+                        return jsonReader
                     }
 
-                    return jsonReader
-                }
-            })
+                    @Override
+                    protected void onUnsubscribe(JsonReader reader) {
+                        reader.close()
+                        byteBuf.release()
+                        super.onUnsubscribe(reader)
+                    }
+
+                    @Override
+                    protected JsonReader next(JsonReader jsonReader, long requested, Observer<Observable<? extends T>> observer) {
+
+                        BsonType bsonType = jsonReader.readBsonType()
+                        boolean endOfDocument = bsonType == BsonType.END_OF_DOCUMENT
+                        try {
+                            if(readCount < requested && !endOfDocument) {
+                                T nextEntity = codec.decode(jsonReader, BsonPersistentEntityCodec.DEFAULT_DECODER_CONTEXT)
+                                readCount++
+                                observer.onNext(Observable.just(nextEntity))
+                            }
+                        } catch (Throwable e) {
+                            log.error "Error querying [$entity.name] entities for URI [$uri]", e
+                            observer.onError(e)
+                        }
+
+                        if(endOfDocument) {
+                            observer.onCompleted()
+                        }
+
+                        return jsonReader
+                    }
+                })
+            }
+
 
         }
 

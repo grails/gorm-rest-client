@@ -13,10 +13,10 @@ import java.text.SimpleDateFormat
 @CompileStatic
 abstract class RxGormSpec extends Specification {
 
-    @Shared @AutoCleanup TestRxRestDatastoreClient client
-    @Shared DateFormat dateFormat
+    @AutoCleanup TestRxRestDatastoreClient client
+    DateFormat dateFormat
 
-    void setupSpec() {
+    void setup() {
         dateFormat = new SimpleDateFormat(JsonWriter.ISO_8601)
         TimeZone UTC = TimeZone.getTimeZone("UTC");
         dateFormat.setTimeZone(UTC)
