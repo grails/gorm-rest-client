@@ -52,10 +52,10 @@ class SimpleRxRestQuery<T> extends Query implements RxQuery<T> {
         Codec codec = datastoreClient.getMappingContext().get(type, datastoreClient.codecRegistry)
         boolean singleResult = false
         def allCriteria = criteria.criteria
+        StringBuilder queryParameters = new StringBuilder("?")
+        boolean first = true
         if(!allCriteria.isEmpty()) {
 
-            StringBuilder queryParameters = new StringBuilder("?")
-            boolean first = true
 
             for(Query.Criterion c in allCriteria) {
                 if(c instanceof Query.IdEquals) {
@@ -85,10 +85,55 @@ class SimpleRxRestQuery<T> extends Query implements RxQuery<T> {
                     }
                 }
             }
-            def queryString = queryParameters.toString()
-            if(queryString.length() > 1) {
-                uri = "${uri}${queryString}"
+        }
+
+
+
+        if(!singleResult) {
+            if(offset > 0 ) {
+                if(first) {
+                    first = false
+                }
+                else {
+                    queryParameters.append("&")
+                }
+                queryParameters.append("offset")
+                        .append('=')
+                        .append(offset)
             }
+            if(max > -1 ) {
+                if(first) {
+                    first = false
+                }
+                else {
+                    queryParameters.append("&")
+                }
+                queryParameters.append("max")
+                        .append('=')
+                        .append(max)
+            }
+
+            for(Query.Order order in orderBy) {
+                if(first) {
+                    first = false
+                }
+                else {
+                    queryParameters.append("&")
+                }
+                queryParameters.append("sort")
+                        .append('=')
+                        .append(order.property)
+                        .append("&")
+                        .append("order")
+                        .append('=')
+                        .append(order.direction.name().toLowerCase())
+            }
+        }
+
+
+        def queryString = queryParameters.toString()
+        if(queryString.length() > 1) {
+            uri = "${uri}${queryString}"
         }
 
         HttpClientRequest httpClientRequest = httpClient.createGet(uri)
