@@ -22,7 +22,6 @@ import org.bson.codecs.configuration.CodecRegistry
 import org.grails.datastore.bson.codecs.BsonPersistentEntityCodec
 import org.grails.datastore.bson.json.JsonReader
 import org.grails.datastore.bson.json.JsonWriter
-import org.grails.datastore.gorm.events.ConfigurableApplicationEventPublisher
 import org.grails.datastore.mapping.core.DatastoreUtils
 import org.grails.datastore.mapping.model.PersistentEntity
 import org.grails.datastore.mapping.query.Query
@@ -39,8 +38,6 @@ import org.grails.datastore.rx.rest.paths.ResourcePathResolver
 import org.grails.datastore.rx.rest.query.SimpleRxRestQuery
 import org.grails.gorm.rx.api.RxGormEnhancer
 import org.grails.gorm.rx.api.RxGormStaticApi
-import org.grails.gorm.rx.events.AutoTimestampEventListener
-import org.grails.gorm.rx.events.DomainEventListener
 import org.springframework.core.convert.converter.Converter
 import org.springframework.core.env.PropertyResolver
 import rx.Observable
@@ -195,28 +192,11 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient<ConnectionProvider
 
             for(BatchOperation.EntityOperation entityOp in entityOperationMap.values()) {
 
-                Observable postObservable = httpClient
-                        .                               createPost(uri)
+                Observable postObservable = httpClient.createPost(uri)
                 postObservable = postObservable.setHeader( HttpHeaderNames.CONTENT_TYPE, contentType )
                 postObservable = prepareRequest(postObservable)
                 postObservable.writeContent(
-                    Observable.create({ Subscriber<ByteBuf> subscriber ->
-                        ByteBuf byteBuf = Unpooled.buffer()
-                        try {
-                            def writer = new OutputStreamWriter(new ByteBufOutputStream(byteBuf), charset)
-                            def jsonWriter = new JsonWriter(writer)
-                            codec.encode(jsonWriter, entityOp.object, BsonPersistentEntityCodec.DEFAULT_ENCODER_CONTEXT)
-
-                            subscriber.onNext(byteBuf)
-                        } catch (Throwable e) {
-                            log.error "Error encoding object [$entityOp.object] to JSON: $e.message", e
-                            subscriber.onError(e)
-                        }
-                        finally {
-                            subscriber.onCompleted()
-                        }
-
-                    } as Observable.OnSubscribe<ByteBuf>)
+                    createContentWriteObservable(codec, entityOp)
                 )
                 postObservable = postObservable.map { HttpClientResponse response ->
                     return new ResponseAndEntity(uri, response, entity, entityOp.object, codec)
@@ -224,68 +204,115 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient<ConnectionProvider
                 observables.add(postObservable)
             }
         }
+
+        for(PersistentEntity entity in operation.updates.keySet()) {
+            Map<Serializable, BatchOperation.EntityOperation> entityOperationMap = operation.updates.get(entity)
+            Class type = entity.getJavaClass()
+            Codec codec = getCodecRegistry().get(type)
+            String contentType = ((RestEndpointPersistentEntity) entity).getMapping().getMappedForm().contentType
+
+            for(Serializable id in entityOperationMap.keySet()) {
+                BatchOperation.EntityOperation entityOp = entityOperationMap.get(id)
+                String uri = pathResolver.getPath(type, id)
+
+                Observable putObservable = httpClient.createPut(uri)
+                putObservable = putObservable.setHeader( HttpHeaderNames.CONTENT_TYPE, contentType )
+                putObservable = prepareRequest(putObservable)
+                putObservable.writeContent(
+                    createContentWriteObservable(codec, entityOp)
+                )
+                putObservable = putObservable.map { HttpClientResponse response ->
+                    return new ResponseAndEntity(uri, response, entity, entityOp.object, codec)
+                }
+                observables.add(putObservable)
+            }
+        }
+
         if(observables.isEmpty()) {
             return Observable.just((Number)0L)
         }
         else {
             return (Observable<Number>)Observable.concatEager(observables)
-                    .switchMap { ResponseAndEntity responseAndEntity ->
-                        HttpClientResponse response = responseAndEntity.response
-                        HttpResponseStatus status = response.status
-                        if(status == HttpResponseStatus.CREATED || status == HttpResponseStatus.OK) {
-                            if("application/json" == response.getHeader(HttpHeaderNames.CONTENT_TYPE)) {
-                                return Observable.combineLatest( Observable.just(responseAndEntity), response.content, { ResponseAndEntity res, Object content ->
-                                    res.content = content
-                                    return res
-                                } as Func2<ResponseAndEntity, Object, ResponseAndEntity>)
-                            }
-                            else {
-                                return Observable.just(responseAndEntity)
-                            }
+                .switchMap { ResponseAndEntity responseAndEntity ->
+                    HttpClientResponse response = responseAndEntity.response
+                    HttpResponseStatus status = response.status
+                    if(status == HttpResponseStatus.CREATED ) {
+                        if("application/json" == response.getHeader(HttpHeaderNames.CONTENT_TYPE)) {
+                            return Observable.combineLatest( Observable.just(responseAndEntity), response.content, { ResponseAndEntity res, Object content ->
+                                res.content = content
+                                return res
+                            } as Func2<ResponseAndEntity, Object, ResponseAndEntity>)
                         }
                         else {
-                            throw new HttpClientException("Server returned error response: $status, reason: ${status.reasonPhrase()} for host ${response.hostHeader}")
+                            return Observable.just(responseAndEntity)
                         }
                     }
-                    .reduce(0L, { Long count, ResponseAndEntity responseAndContent ->
-                        HttpClientResponse response = responseAndContent.response
-                        Object content = responseAndContent.content
-                        HttpResponseStatus status = response.status
-                        if(status == HttpResponseStatus.CREATED || status == HttpResponseStatus.OK) {
-                            count++
-                            if(content != null) {
-                                ByteBuf byteBuf
-                                if (content instanceof ByteBuf) {
-                                    byteBuf = (ByteBuf) content
-                                } else if (content instanceof ByteBufHolder) {
-                                    byteBuf = ((ByteBufHolder) content).content()
-                                } else {
-                                    throw new IllegalStateException("Received invalid response object: $content")
-                                }
-
-                                def reader = new InputStreamReader(new ByteBufInputStream(byteBuf))
-                                Codec codec = responseAndContent.codec
-                                try {
-                                    Object decoded = codec.decode(new JsonReader(reader), BsonPersistentEntityCodec.DEFAULT_DECODER_CONTEXT)
-
-                                    EntityReflector reflector = responseAndContent.entity.reflector
-                                    def identifier = reflector.getIdentifier(decoded)
-                                    reflector.setIdentifier(responseAndContent.object, identifier)
-                                }
-                                catch(Throwable e) {
-                                    log.error "Error querying [$responseAndContent.entity.name] object for URI [$responseAndContent.uri]", e
-                                    throw new HttpClientException("Error decoding entity ... from response: $e.message", e)
-                                }
-                                finally {
-                                    byteBuf.release()
-                                    reader.close()
-                                }
-
+                    else if(status == HttpResponseStatus.OK) {
+                        return Observable.just(responseAndEntity)
+                    }
+                    else {
+                        throw new HttpClientException("Server returned error response: $status, reason: ${status.reasonPhrase()} for host ${response.hostHeader}")
+                    }
+                }
+                .reduce(0L, { Long count, ResponseAndEntity responseAndContent ->
+                    HttpClientResponse response = responseAndContent.response
+                    Object content = responseAndContent.content
+                    HttpResponseStatus status = response.status
+                    if(status == HttpResponseStatus.CREATED || status == HttpResponseStatus.OK) {
+                        count++
+                        if(content != null) {
+                            ByteBuf byteBuf
+                            if (content instanceof ByteBuf) {
+                                byteBuf = (ByteBuf) content
+                            } else if (content instanceof ByteBufHolder) {
+                                byteBuf = ((ByteBufHolder) content).content()
+                            } else {
+                                throw new IllegalStateException("Received invalid response object: $content")
                             }
+
+                            def reader = new InputStreamReader(new ByteBufInputStream(byteBuf))
+                            Codec codec = responseAndContent.codec
+                            try {
+                                Object decoded = codec.decode(new JsonReader(reader), BsonPersistentEntityCodec.DEFAULT_DECODER_CONTEXT)
+
+                                EntityReflector reflector = responseAndContent.entity.reflector
+                                def identifier = reflector.getIdentifier(decoded)
+                                reflector.setIdentifier(responseAndContent.object, identifier)
+                            }
+                            catch(Throwable e) {
+                                log.error "Error querying [$responseAndContent.entity.name] object for URI [$responseAndContent.uri]", e
+                                throw new HttpClientException("Error decoding entity ... from response: $e.message", e)
+                            }
+                            finally {
+                                byteBuf.release()
+                                reader.close()
+                            }
+
                         }
-                        return (Number)count
+                    }
+                    return (Number)count
             })
         }
+    }
+
+    protected Observable<ByteBuf> createContentWriteObservable(Codec codec, BatchOperation.EntityOperation entityOp) {
+        Observable.create({ Subscriber<ByteBuf> subscriber ->
+            ByteBuf byteBuf = Unpooled.buffer()
+            try {
+                def writer = new OutputStreamWriter(new ByteBufOutputStream(byteBuf), charset)
+                def jsonWriter = new JsonWriter(writer)
+                codec.encode(jsonWriter, entityOp.object, BsonPersistentEntityCodec.DEFAULT_ENCODER_CONTEXT)
+
+                subscriber.onNext(byteBuf)
+            } catch (Throwable e) {
+                log.error "Error encoding object [$entityOp.object] to JSON: $e.message", e
+                subscriber.onError(e)
+            }
+            finally {
+                subscriber.onCompleted()
+            }
+
+        } as Observable.OnSubscribe<ByteBuf>)
     }
 
     @Override
