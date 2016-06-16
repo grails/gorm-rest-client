@@ -38,109 +38,39 @@ import rx.subjects.PublishSubject
 @Slf4j
 class SimpleRxRestQuery<T> extends Query implements RxQuery<T> {
 
+    protected static final char AMPERSAND = '&'
+    protected static final char EQUALS = '='
+
     final RxRestDatastoreClient datastoreClient
     final QueryState queryState
+
+    protected boolean singleResult = false
+    protected Serializable id = null
+    protected String uri
+    protected Class<T> type
 
     SimpleRxRestQuery(RxRestDatastoreClient client, PersistentEntity entity, QueryState queryState = new QueryState()) {
         super(null, entity)
         this.datastoreClient = client
         this.queryState = queryState
+        this.type = entity.getJavaClass()
+        this.uri = datastoreClient.pathResolver.getPath(type)
     }
 
     @Override
     Observable<T> findAll() {
         HttpClient httpClient = datastoreClient.createHttpClient()
-        Class<T> type = entity.getJavaClass()
-        String uri = datastoreClient.pathResolver.getPath(type)
+
         Codec codec = datastoreClient.getMappingContext().get(type, datastoreClient.codecRegistry)
-        boolean singleResult = false
-        def allCriteria = criteria.criteria
-        StringBuilder queryParameters = new StringBuilder("?")
-        boolean first = true
 
-        if(!allCriteria.isEmpty()) {
+        StringBuilder queryParameters = buildParameters()
 
-
-            for(Query.Criterion c in allCriteria) {
-                if(c instanceof Query.IdEquals) {
-                    uri = "$uri/${((Query.IdEquals)c).getValue()}"
-                    singleResult = true
-                }
-                else if(c instanceof Query.Equals) {
-                    Query.Equals equals = (Query.Equals)c
-                    def value = equals.value
-
-                    if(equals.property == entity.getIdentity().name) {
-
-                        T loadedEntity = queryState.getLoadedEntity(type, (Serializable)value)
-                        if(loadedEntity != null) {
-                            return Observable.just(loadedEntity)
-                        }
-
-                        uri = "$uri/${ value}"
-                        singleResult = true
-                    }
-                    else {
-
-                        if(first) {
-                            first = false
-                        }
-                        else {
-                            queryParameters.append("&")
-                        }
-
-                        queryParameters
-                                .append(equals.property)
-                                .append('=')
-                                .append(URLEncoder.encode(value.toString(), datastoreClient.charset.toString()))
-                    }
-                }
+        if(id != null) {
+            T loadedEntity = queryState.getLoadedEntity(type, id)
+            if(loadedEntity != null) {
+                return Observable.just(loadedEntity)
             }
         }
-
-
-
-        if(!singleResult) {
-            if(offset > 0 ) {
-                if(first) {
-                    first = false
-                }
-                else {
-                    queryParameters.append("&")
-                }
-                queryParameters.append("offset")
-                        .append('=')
-                        .append(offset)
-            }
-            if(max > -1 ) {
-                if(first) {
-                    first = false
-                }
-                else {
-                    queryParameters.append("&")
-                }
-                queryParameters.append("max")
-                        .append('=')
-                        .append(max)
-            }
-
-            for(Query.Order order in orderBy) {
-                if(first) {
-                    first = false
-                }
-                else {
-                    queryParameters.append("&")
-                }
-                queryParameters.append("sort")
-                        .append('=')
-                        .append(order.property)
-                        .append("&")
-                        .append("order")
-                        .append('=')
-                        .append(order.direction.name().toLowerCase())
-            }
-        }
-
 
         def queryString = queryParameters.toString()
         if(queryString.length() > 1) {
@@ -231,6 +161,85 @@ class SimpleRxRestQuery<T> extends Query implements RxQuery<T> {
 
         }
 
+    }
+
+    protected StringBuilder buildParameters() {
+        def allCriteria = criteria.criteria
+        StringBuilder queryParameters = new StringBuilder("?")
+        boolean first = true
+
+        if (!allCriteria.isEmpty()) {
+
+
+            for (Query.Criterion c in allCriteria) {
+                if (c instanceof Query.IdEquals) {
+                    uri = "$uri/${((Query.IdEquals) c).getValue()}"
+                    singleResult = true
+                } else if (c instanceof Query.Equals) {
+                    Query.Equals equals = (Query.Equals) c
+                    def value = equals.value
+
+                    if (equals.property == entity.getIdentity().name) {
+                        id = (Serializable) value
+                        uri = "$uri/${value}"
+                        singleResult = true
+                    } else {
+
+                        if (first) {
+                            first = false
+                        } else {
+                            queryParameters.append(AMPERSAND)
+                        }
+
+                        queryParameters
+                                .append(equals.property)
+                                .append(EQUALS)
+                                .append(URLEncoder.encode(value.toString(), datastoreClient.charset.toString()))
+                    }
+                }
+            }
+        }
+
+
+
+        if (!singleResult) {
+            if (offset > 0) {
+                if (first) {
+                    first = false
+                } else {
+                    queryParameters.append(AMPERSAND)
+                }
+                queryParameters.append(datastoreClient.offsetParameter)
+                        .append(EQUALS)
+                        .append(offset)
+            }
+            if (max > -1) {
+                if (first) {
+                    first = false
+                } else {
+                    queryParameters.append(AMPERSAND)
+                }
+                queryParameters.append(datastoreClient.maxParameter)
+                        .append(EQUALS)
+                        .append(max)
+            }
+
+            for (Query.Order order in orderBy) {
+                if (first) {
+                    first = false
+                } else {
+                    queryParameters.append(AMPERSAND)
+                }
+                queryParameters.append(datastoreClient.sortParameter)
+                        .append(EQUALS)
+                        .append(order.property)
+                        .append(AMPERSAND)
+                        .append(datastoreClient.orderParameter)
+                        .append(EQUALS)
+                        .append(order.direction.name().toLowerCase())
+            }
+        }
+        return queryParameters
     }
 
     @Override

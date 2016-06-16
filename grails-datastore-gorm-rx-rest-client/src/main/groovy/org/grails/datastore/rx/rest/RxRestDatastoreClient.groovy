@@ -44,35 +44,55 @@ import java.text.SimpleDateFormat
 @CompileStatic
 class RxRestDatastoreClient extends AbstractRxDatastoreClient<ConnectionProviderFactory> {
 
-    public static final String HOST = "grails.gorm.rest.host"
-    public static final String PORT = "grails.gorm.rest.port"
-    public static final String CHARSET = "grails.gorm.rest.charset"
-    public static final String OPTIONS = "grails.gorm.rest.options"
-    public static final String USERNAME = "grails.gorm.rest.username"
-    public static final String PASSWORD = "grails.gorm.rest.password"
+    public static final String SETTING_HOST = "grails.gorm.rest.host"
+    public static final String SETTING_PORT = "grails.gorm.rest.port"
+    public static final String SETTING_CHARSET = "grails.gorm.rest.charset"
+    public static final String SETTING_POOL_OPTIONS = "grails.gorm.rest.pool.options"
+    public static final String SETTING_USERNAME = "grails.gorm.rest.username"
+    public static final String SETTING_PASSWORD = "grails.gorm.rest.password"
+    public static final String SETTING_ORDER_PARAMETER = "grails.gorm.rest.parameters.order"
+    public static final String SETTING_SORT_PARAMETER = "grails.gorm.rest.parameters.sort"
+    public static final String SETTING_MAX_PARAMETER = "grails.gorm.rest.parameters.max"
+    public static final String SETTING_OFFSET_PARAMETER = "grails.gorm.rest.parameters.offset"
+    public static final String DEFAULT_ORDER_PARAMETER = "order"
+    public static final String DEFAULT_OFFSET_PARAMETER = "offset"
+    public static final String DEFAULT_SORT_PARAMETER = "sort"
+    public static final String DEFAULT_MAX_PARAMETER = "max"
 
 
     final ConnectionProviderFactory connectionProviderFactory
     final Observable<Host> defaultClientHost
-    final ResourcePathResolver pathResolver
     final CodecRegistry codecRegistry
     final String username
     final String password
     final Charset charset
+    final String orderParameter
+    final String offsetParameter
+    final String maxParameter
+    final String sortParameter
+
+    /**
+     * The resolver used to resolve paths to resources
+     */
+    ResourcePathResolver pathResolver
 
     RxRestDatastoreClient(SocketAddress serverAddress, PropertyResolver configuration, RestClientMappingContext mappingContext) {
         super(mappingContext)
 
         this.defaultClientHost = Observable.just(new Host(serverAddress))
         this.pathResolver = new DefaultResourcePathResolver(mappingContext)
-        this.username = configuration.getProperty(USERNAME, String, null)
-        this.password = configuration.getProperty(PASSWORD, String, null)
-        this.charset = Charset.forName( configuration.getProperty(CHARSET, "UTF-8"))
+        this.username = configuration.getProperty(SETTING_USERNAME, String, null)
+        this.password = configuration.getProperty(SETTING_PASSWORD, String, null)
+        this.charset = Charset.forName( configuration.getProperty(SETTING_CHARSET, "UTF-8"))
         def pool = new PoolConfig()
         // TODO: populate pool configuration
         connectionProviderFactory = SingleHostPoolingProviderFactory.create(pool)
         this.codecRegistry = mappingContext.codecRegistry
 
+        this.orderParameter = configuration.getProperty(SETTING_ORDER_PARAMETER, String, DEFAULT_ORDER_PARAMETER)
+        this.offsetParameter = configuration.getProperty(SETTING_OFFSET_PARAMETER, String, DEFAULT_OFFSET_PARAMETER)
+        this.sortParameter = configuration.getProperty(SETTING_SORT_PARAMETER, String, DEFAULT_SORT_PARAMETER)
+        this.maxParameter = configuration.getProperty(SETTING_MAX_PARAMETER, String, DEFAULT_MAX_PARAMETER)
         initialize(mappingContext)
     }
 
@@ -109,37 +129,6 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient<ConnectionProvider
         return (RestClientMappingContext)super.getMappingContext()
     }
 
-    protected void initialize(RestClientMappingContext mappingContext) {
-        for (entity in mappingContext.persistentEntities) {
-            RxGormEnhancer.registerEntity(entity, this)
-        }
-
-        initDefaultConverters(mappingContext)
-        initDefaultEventListeners(eventPublisher)
-    }
-
-    void initDefaultConverters(RestClientMappingContext mappingContext) {
-        TimeZone UTC = TimeZone.getTimeZone("UTC");
-        mappingContext.converterRegistry.addConverter(new Converter<String, Date>() {
-            @Override
-            Date convert(String source) {
-                def format = new SimpleDateFormat(JsonWriter.ISO_8601)
-                format.setTimeZone(UTC)
-                return format.parse(source)
-            }
-        })
-    }
-
-    protected void initDefaultEventListeners(ConfigurableApplicationEventPublisher configurableApplicationEventPublisher) {
-        configurableApplicationEventPublisher.addApplicationListener(new AutoTimestampEventListener(this))
-        configurableApplicationEventPublisher.addApplicationListener(new DomainEventListener(this))
-    }
-
-
-    protected static InetSocketAddress createServerSocketAddress(PropertyResolver configuration) {
-        new InetSocketAddress(configuration.getProperty(HOST, String.class, "localhost"), configuration.getProperty(PORT, Integer.class, 8080))
-    }
-
     @Override
     Observable<Number> batchDelete(BatchOperation operation) {
         HttpClient httpClient = createHttpClient()
@@ -172,10 +161,10 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient<ConnectionProvider
         }
     }
 
-
     HttpClient<ByteBuf, ByteBuf> createHttpClient() {
         return HttpClient.newClient(connectionProviderFactory, defaultClientHost)
     }
+
 
     @Override
     Observable<Number> batchWrite(BatchOperation operation) {
@@ -202,6 +191,37 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient<ConnectionProvider
     @Override
     ConnectionProviderFactory getNativeInterface() {
         return connectionProviderFactory
+    }
+
+    protected void initialize(RestClientMappingContext mappingContext) {
+        for (entity in mappingContext.persistentEntities) {
+            RxGormEnhancer.registerEntity(entity, this)
+        }
+
+        initDefaultConverters(mappingContext)
+        initDefaultEventListeners(eventPublisher)
+    }
+
+    protected void initDefaultConverters(RestClientMappingContext mappingContext) {
+        TimeZone UTC = TimeZone.getTimeZone("UTC");
+        mappingContext.converterRegistry.addConverter(new Converter<String, Date>() {
+            @Override
+            Date convert(String source) {
+                def format = new SimpleDateFormat(JsonWriter.ISO_8601)
+                format.setTimeZone(UTC)
+                return format.parse(source)
+            }
+        })
+    }
+
+    protected void initDefaultEventListeners(ConfigurableApplicationEventPublisher configurableApplicationEventPublisher) {
+        configurableApplicationEventPublisher.addApplicationListener(new AutoTimestampEventListener(this))
+        configurableApplicationEventPublisher.addApplicationListener(new DomainEventListener(this))
+    }
+
+
+    protected static InetSocketAddress createServerSocketAddress(PropertyResolver configuration) {
+        new InetSocketAddress(configuration.getProperty(SETTING_HOST, String.class, "localhost"), configuration.getProperty(SETTING_PORT, Integer.class, 8080))
     }
 
     protected static RestClientMappingContext createMappingContext(PropertyResolver configuration, Class... classes) {
