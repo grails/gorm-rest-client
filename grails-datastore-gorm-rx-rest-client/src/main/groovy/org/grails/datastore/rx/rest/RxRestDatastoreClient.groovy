@@ -2,11 +2,6 @@ package org.grails.datastore.rx.rest
 
 import groovy.transform.CompileStatic
 import io.netty.buffer.ByteBuf
-import io.netty.buffer.ByteBufHolder
-import io.netty.buffer.ByteBufInputStream
-import io.netty.buffer.Unpooled
-import io.netty.handler.codec.base64.Base64
-import io.netty.handler.codec.http.HttpHeaderNames
 import io.netty.handler.codec.http.HttpResponseStatus
 import io.reactivex.netty.client.ConnectionProviderFactory
 import io.reactivex.netty.client.Host
@@ -15,10 +10,7 @@ import io.reactivex.netty.client.pool.SingleHostPoolingProviderFactory
 import io.reactivex.netty.protocol.http.client.HttpClient
 import io.reactivex.netty.protocol.http.client.HttpClientRequest
 import io.reactivex.netty.protocol.http.client.HttpClientResponse
-import org.bson.codecs.Codec
 import org.bson.codecs.configuration.CodecRegistry
-import org.grails.datastore.bson.codecs.BsonPersistentEntityCodec
-import org.grails.datastore.bson.json.JsonReader
 import org.grails.datastore.bson.json.JsonWriter
 import org.grails.datastore.gorm.events.ConfigurableApplicationEventPublisher
 import org.grails.datastore.mapping.core.DatastoreUtils
@@ -43,7 +35,6 @@ import rx.Observable
 
 import java.nio.charset.Charset
 import java.text.SimpleDateFormat
-
 /**
  * An RxGORM implementation that backs onto a backend REST server
  *
@@ -150,53 +141,6 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient<ConnectionProvider
     }
 
     @Override
-    def <T> Observable get(Class<T> type, Serializable id, QueryState queryState) {
-
-        PersistentEntity entity = getMappingContext().getPersistentEntity(type.name)
-        if (entity == null) {
-            throw new IllegalArgumentException("Type [$type.name] is not a persistent type")
-        }
-
-        def loadedEntity = queryState.getLoadedEntity(type, id)
-        if(loadedEntity != null) {
-            return Observable.just(loadedEntity)
-        }
-
-        HttpClient httpClient = createHttpClient()
-        String uri = pathResolver.getPath(entity.getJavaClass(), id)
-
-
-        HttpClientRequest httpClientRequest = httpClient
-                            .createGet(uri)
-
-        prepareRequest(httpClientRequest)
-
-        httpClientRequest
-                .switchMap { HttpClientResponse response ->
-            response.getContent()
-        }.map { Object object ->
-            ByteBuf byteBuf
-            if (object instanceof ByteBuf) {
-                byteBuf = (ByteBuf) object
-            } else if (object instanceof ByteBufHolder) {
-                byteBuf = ((ByteBufHolder) object).content()
-            } else {
-                throw new IllegalStateException("Received invalid response object: $object")
-            }
-
-            def reader = new InputStreamReader(new ByteBufInputStream(byteBuf))
-            Codec codec = getMappingContext().get(type, codecRegistry)
-            try {
-                def decoded = codec.decode(new JsonReader(reader), BsonPersistentEntityCodec.DEFAULT_DECODER_CONTEXT)
-                return decoded
-            } finally {
-                byteBuf.release()
-                reader.close()
-            }
-        }
-    }
-
-    @Override
     Observable<Number> batchDelete(BatchOperation operation) {
         HttpClient httpClient = createHttpClient()
         List<HttpClientRequest> observables = []
@@ -228,13 +172,6 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient<ConnectionProvider
         }
     }
 
-    protected void prepareRequest(HttpClientRequest<ByteBuf, ByteBuf> httpClientRequest) {
-        if (username != null && password != null) {
-            String usernameAndPassword = "$username:$password"
-            def encoded = Base64.encode(Unpooled.wrappedBuffer(usernameAndPassword.bytes)).toString(charset)
-            httpClientRequest.addHeader HttpHeaderNames.AUTHORIZATION, "Basic $encoded".toString()
-        }
-    }
 
     HttpClient<ByteBuf, ByteBuf> createHttpClient() {
         return HttpClient.newClient(connectionProviderFactory, defaultClientHost)

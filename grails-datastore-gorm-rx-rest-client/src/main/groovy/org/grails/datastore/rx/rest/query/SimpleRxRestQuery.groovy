@@ -5,6 +5,9 @@ import groovy.util.logging.Slf4j
 import io.netty.buffer.ByteBuf
 import io.netty.buffer.ByteBufHolder
 import io.netty.buffer.ByteBufInputStream
+import io.netty.buffer.Unpooled
+import io.netty.handler.codec.base64.Base64
+import io.netty.handler.codec.http.HttpHeaderNames
 import io.netty.util.concurrent.BlockingOperationException
 import io.reactivex.netty.protocol.http.client.HttpClient
 import io.reactivex.netty.protocol.http.client.HttpClientRequest
@@ -38,7 +41,7 @@ class SimpleRxRestQuery<T> extends Query implements RxQuery<T> {
     final RxRestDatastoreClient datastoreClient
     final QueryState queryState
 
-    SimpleRxRestQuery(RxRestDatastoreClient client, PersistentEntity entity, QueryState queryState = null) {
+    SimpleRxRestQuery(RxRestDatastoreClient client, PersistentEntity entity, QueryState queryState = new QueryState()) {
         super(null, entity)
         this.datastoreClient = client
         this.queryState = queryState
@@ -47,13 +50,14 @@ class SimpleRxRestQuery<T> extends Query implements RxQuery<T> {
     @Override
     Observable<T> findAll() {
         HttpClient httpClient = datastoreClient.createHttpClient()
-        Class type = entity.getJavaClass()
+        Class<T> type = entity.getJavaClass()
         String uri = datastoreClient.pathResolver.getPath(type)
         Codec codec = datastoreClient.getMappingContext().get(type, datastoreClient.codecRegistry)
         boolean singleResult = false
         def allCriteria = criteria.criteria
         StringBuilder queryParameters = new StringBuilder("?")
         boolean first = true
+
         if(!allCriteria.isEmpty()) {
 
 
@@ -64,9 +68,16 @@ class SimpleRxRestQuery<T> extends Query implements RxQuery<T> {
                 }
                 else if(c instanceof Query.Equals) {
                     Query.Equals equals = (Query.Equals)c
+                    def value = equals.value
 
                     if(equals.property == entity.getIdentity().name) {
-                        uri = "$uri/${equals.value}"
+
+                        T loadedEntity = queryState.getLoadedEntity(type, (Serializable)value)
+                        if(loadedEntity != null) {
+                            return Observable.just(loadedEntity)
+                        }
+
+                        uri = "$uri/${ value}"
                         singleResult = true
                     }
                     else {
@@ -81,7 +92,7 @@ class SimpleRxRestQuery<T> extends Query implements RxQuery<T> {
                         queryParameters
                                 .append(equals.property)
                                 .append('=')
-                                .append(URLEncoder.encode(equals.value.toString(), datastoreClient.charset.toString()))
+                                .append(URLEncoder.encode(value.toString(), datastoreClient.charset.toString()))
                     }
                 }
             }
@@ -137,6 +148,8 @@ class SimpleRxRestQuery<T> extends Query implements RxQuery<T> {
         }
 
         HttpClientRequest httpClientRequest = httpClient.createGet(uri)
+
+        prepareRequest(httpClientRequest)
 
         httpClientRequest
                 .switchMap { HttpClientResponse response ->
@@ -239,4 +252,16 @@ class SimpleRxRestQuery<T> extends Query implements RxQuery<T> {
     Observable<Number> deleteAll() {
         throw new UnsupportedOperationException("Batch operations are not supported")
     }
+
+    protected void prepareRequest(HttpClientRequest<ByteBuf, ByteBuf> httpClientRequest) {
+        String username = datastoreClient.username
+        String password = datastoreClient.password
+
+        if (username != null && password != null) {
+            String usernameAndPassword = "$username:$password"
+            def encoded = Base64.encode(Unpooled.wrappedBuffer(usernameAndPassword.bytes)).toString(datastoreClient.charset)
+            httpClientRequest.addHeader HttpHeaderNames.AUTHORIZATION, "Basic $encoded".toString()
+        }
+    }
+
 }
