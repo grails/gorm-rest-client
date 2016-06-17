@@ -22,6 +22,7 @@ import org.grails.datastore.rx.query.QueryState
 import org.grails.datastore.rx.query.RxQuery
 import org.grails.datastore.rx.rest.RxRestDatastoreClient
 import org.grails.datastore.rx.rest.config.RestEndpointPersistentEntity
+import org.grails.datastore.rx.rest.exceptions.HttpClientException
 import org.springframework.util.LinkedMultiValueMap
 import rx.Observable
 import rx.Observer
@@ -40,6 +41,7 @@ class SimpleRxRestQuery<T> extends Query implements RxQuery<T> {
     protected static final char AMPERSAND = '&'
     protected static final char EQUALS = '='
     protected static final char QUESTION_MARK = '?'
+    protected static final String _EMBEDDED = "_embedded"
 
     final RxRestDatastoreClient datastoreClient
     final QueryState queryState
@@ -153,7 +155,42 @@ class SimpleRxRestQuery<T> extends Query implements RxQuery<T> {
                     protected JsonReader generateState() {
                         def reader = new InputStreamReader(new ByteBufInputStream(byteBuf))
                         def jsonReader = new JsonReader(reader)
-                        jsonReader.readStartArray()
+                        BsonType bsonType = jsonReader.readBsonType()
+                        if(bsonType == BsonType.ARRAY) {
+                            // an array of objects
+                            jsonReader.readStartArray()
+                        }
+                        else if(bsonType == BsonType.DOCUMENT) {
+                            // if we get here the response is probably HAL, so look for embedded array
+                            jsonReader.readStartDocument()
+                            bsonType = jsonReader.readBsonType()
+                            while(bsonType != BsonType.END_OF_DOCUMENT) {
+
+                                String attr  = jsonReader.readName()
+                                if(attr == _EMBEDDED) {
+                                    jsonReader.readStartDocument()
+                                    bsonType = jsonReader.currentBsonType
+                                    while(bsonType != BsonType.END_OF_DOCUMENT) {
+                                        jsonReader.readName()
+                                        bsonType = jsonReader.currentBsonType
+                                        if(bsonType == BsonType.ARRAY) {
+                                            jsonReader.readStartArray()
+                                            return jsonReader
+                                        }
+                                        else {
+                                            jsonReader.skipValue()
+                                        }
+                                    }
+                                    jsonReader.readEndDocument()
+                                }
+                                else {
+                                    jsonReader.skipValue()
+                                }
+                            }
+                        }
+                        else {
+                            throw new HttpClientException("Invalid JSON response received from server")
+                        }
                         return jsonReader
                     }
 
@@ -171,15 +208,24 @@ class SimpleRxRestQuery<T> extends Query implements RxQuery<T> {
                         boolean endOfDocument = bsonType == BsonType.END_OF_DOCUMENT
                         try {
                             if(readCount < requested && !endOfDocument) {
-                                T nextEntity = codec.decode(jsonReader, BsonPersistentEntityCodec.DEFAULT_DECODER_CONTEXT)
-                                readCount++
-                                observer.onNext(Observable.just(nextEntity))
+                                if(bsonType == BsonType.DOCUMENT) {
+                                    T nextEntity = codec.decode(jsonReader, BsonPersistentEntityCodec.DEFAULT_DECODER_CONTEXT)
+                                    readCount++
+                                    observer.onNext(Observable.just(nextEntity))
+                                }
+                                else {
+                                    jsonReader.skipName()
+                                    jsonReader.skipValue()
+                                    bsonType = jsonReader.readBsonType()
+                                }
                             }
+
                         } catch (Throwable e) {
                             log.error "Error querying [$entity.name] entities for URI [$uri]", e
                             observer.onError(e)
                         }
 
+                        endOfDocument = bsonType == BsonType.END_OF_DOCUMENT
                         if(endOfDocument) {
                             observer.onCompleted()
                         }
