@@ -44,6 +44,7 @@ class SimpleRxRestQuery<T> extends Query implements RxQuery<T> {
 
     protected static final char AMPERSAND = '&'
     protected static final char EQUALS = '='
+    protected static final char QUESTION_MARK = '='
 
     final RxRestDatastoreClient datastoreClient
     final QueryState queryState
@@ -52,13 +53,16 @@ class SimpleRxRestQuery<T> extends Query implements RxQuery<T> {
     protected Serializable id = null
     protected Class<T> type
     protected final UriTemplate uriTemplate
+    protected final String contentType
 
     SimpleRxRestQuery(RxRestDatastoreClient client, PersistentEntity entity, QueryState queryState = new QueryState()) {
         super(null, entity)
         this.datastoreClient = client
         this.queryState = queryState
         this.type = entity.getJavaClass()
-        this.uriTemplate = ((RestEndpointPersistentEntity)entity).getUriTemplate()
+        def restEntity = (RestEndpointPersistentEntity) entity
+        this.contentType = restEntity.getContentType()
+        this.uriTemplate = restEntity.getUriTemplate()
     }
 
     @Override
@@ -81,10 +85,10 @@ class SimpleRxRestQuery<T> extends Query implements RxQuery<T> {
         Collection<String> remaining = queryParameters.keySet().findAll() { String param -> !variables.contains(param)}
         if(!remaining.isEmpty()) {
             StringBuilder newUri = new StringBuilder(uri)
-            def i = uri.indexOf('?')
+            def i = uri.indexOf(QUESTION_MARK)
             boolean hasNoParameters = i == -1
             if(hasNoParameters) {
-                newUri.append('?')
+                newUri.append(QUESTION_MARK)
             }
 
             def charset = datastoreClient.charset.toString()
@@ -93,7 +97,7 @@ class SimpleRxRestQuery<T> extends Query implements RxQuery<T> {
                 def values = queryParameters.get(param)
                 for(val in values) {
                     if(!hasNoParameters) {
-                        newUri.append('&')
+                        newUri.append(AMPERSAND)
                     }
                     else {
                         hasNoParameters = false
@@ -101,7 +105,7 @@ class SimpleRxRestQuery<T> extends Query implements RxQuery<T> {
 
                     newUri
                         .append(param)
-                        .append('=')
+                        .append(EQUALS)
                         .append(URLEncoder.encode(val.toString(), charset))
                 }
             }
@@ -111,6 +115,7 @@ class SimpleRxRestQuery<T> extends Query implements RxQuery<T> {
         HttpClientRequest httpClientRequest = httpClient.createGet(uri)
 
         httpClientRequest = datastoreClient.prepareRequest(httpClientRequest)
+        httpClientRequest = httpClientRequest.setHeader(HttpHeaderNames.ACCEPT, contentType)
 
         httpClientRequest
                 .switchMap { HttpClientResponse response ->
@@ -208,11 +213,7 @@ class SimpleRxRestQuery<T> extends Query implements RxQuery<T> {
 
             def allCriteria = junction.criteria
             LinkedMultiValueMap<String,Object> queryParameters = new LinkedMultiValueMap<>()
-            boolean first = true
-
             if (!allCriteria.isEmpty()) {
-
-
                 for (Query.Criterion c in allCriteria) {
                     if (c instanceof Query.Conjunction) {
                         return buildParameters((Query.Conjunction)c)
@@ -231,64 +232,21 @@ class SimpleRxRestQuery<T> extends Query implements RxQuery<T> {
                             queryParameters.add(idName, id)
                             singleResult = true
                         } else {
-
-                            if (first) {
-                                first = false
-                            } else {
-//                                queryParameters.append(AMPERSAND)
-                            }
-
                             queryParameters.add(equals.property, equals.value)
-//                            queryParameters
-//                                    .append(equals.property)
-//                                    .append(EQUALS)
-//                                    .append(URLEncoder.encode(value.toString(), datastoreClient.charset.toString()))
                         }
                     }
                 }
             }
 
-
-
             if (!singleResult) {
                 if (offset > 0) {
-//                    if (first) {
-//                        first = false
-//                    } else {
-//                        queryParameters.append(AMPERSAND)
-//                    }
-//                    queryParameters.append(datastoreClient.offsetParameter)
-//                            .append(EQUALS)
-//                            .append(offset)
                     queryParameters.add(datastoreClient.offsetParameter, offset)
                 }
                 if (max > -1) {
-//                    if (first) {
-//                        first = false
-//                    } else {
-//                        queryParameters.append(AMPERSAND)
-//                    }
-//                    queryParameters.append(datastoreClient.maxParameter)
-//                            .append(EQUALS)
-//                            .append(max)
-
                     queryParameters.add(datastoreClient.maxParameter, max)
                 }
 
                 for (Query.Order order in orderBy) {
-//                    if (first) {
-//                        first = false
-//                    } else {
-//                        queryParameters.append(AMPERSAND)
-//                    }
-//                    queryParameters.append(datastoreClient.sortParameter)
-//                            .append(EQUALS)
-//                            .append(order.property)
-//                            .append(AMPERSAND)
-//                            .append(datastoreClient.orderParameter)
-//                            .append(EQUALS)
-//                            .append(order.direction.name().toLowerCase())
-
                     queryParameters.add(datastoreClient.sortParameter, order.property)
                     queryParameters.add(datastoreClient.orderParameter, order.direction.name().toLowerCase())
                 }

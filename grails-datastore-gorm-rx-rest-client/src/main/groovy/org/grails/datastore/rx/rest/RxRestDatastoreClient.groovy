@@ -34,8 +34,6 @@ import org.grails.datastore.rx.rest.api.RxRestGormStaticApi
 import org.grails.datastore.rx.rest.config.RestClientMappingContext
 import org.grails.datastore.rx.rest.config.RestEndpointPersistentEntity
 import org.grails.datastore.rx.rest.exceptions.HttpClientException
-import org.grails.datastore.rx.rest.paths.DefaultResourcePathResolver
-import org.grails.datastore.rx.rest.paths.ResourcePathResolver
 import org.grails.datastore.rx.rest.query.SimpleRxRestQuery
 import org.grails.gorm.rx.api.RxGormEnhancer
 import org.grails.gorm.rx.api.RxGormStaticApi
@@ -84,16 +82,10 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient<ConnectionProvider
     final String maxParameter
     final String sortParameter
 
-    /**
-     * The resolver used to resolve paths to resources
-     */
-    ResourcePathResolver pathResolver
-
     RxRestDatastoreClient(SocketAddress serverAddress, PropertyResolver configuration, RestClientMappingContext mappingContext) {
         super(mappingContext)
 
         this.defaultClientHost = Observable.just(new Host(serverAddress))
-        this.pathResolver = new DefaultResourcePathResolver(mappingContext)
         this.username = configuration.getProperty(SETTING_USERNAME, String, null)
         this.password = configuration.getProperty(SETTING_PASSWORD, String, null)
         this.charset = Charset.forName( configuration.getProperty(SETTING_CHARSET, "UTF-8"))
@@ -205,6 +197,7 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient<ConnectionProvider
                 String uri = expandUri(uriTemplate, entityReflector, object)
                 Observable postObservable = httpClient.createPost(uri)
                 postObservable = postObservable.setHeader( HttpHeaderNames.CONTENT_TYPE, contentType )
+                                               .setHeader( HttpHeaderNames.ACCEPT, contentType)
                 postObservable = prepareRequest(postObservable)
                 postObservable.writeContent(
                     createContentWriteObservable(codec, entityOp)
@@ -232,6 +225,7 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient<ConnectionProvider
 
                 Observable putObservable = httpClient.createPut(uri)
                 putObservable = putObservable.setHeader( HttpHeaderNames.CONTENT_TYPE, contentType )
+                                             .setHeader( HttpHeaderNames.ACCEPT, contentType )
                 putObservable = prepareRequest(putObservable)
                 putObservable.writeContent(
                     createContentWriteObservable(codec, entityOp)

@@ -15,6 +15,7 @@ import java.beans.Introspector;
 @CompileStatic
 public class RestEndpointPersistentEntity extends AbstractPersistentEntity<Endpoint> {
     final UriTemplate URI;
+    final String contentType;
     final Endpoint mappedForm;
     final RestEndpointClassMapping classMapping;
 
@@ -22,8 +23,9 @@ public class RestEndpointPersistentEntity extends AbstractPersistentEntity<Endpo
         super(javaClass, context);
         this.mappedForm = (Endpoint)context.getMappingFactory().createMappedForm(RestEndpointPersistentEntity.this);
         this.classMapping = new RestEndpointClassMapping(this, context, mappedForm);
-        this.URI = formulateURI();
-
+        Endpoint endpoint = getMapping().getMappedForm();
+        this.URI = formulateURI(endpoint);
+        this.contentType = endpoint.getContentType();
     }
 
     @Override
@@ -35,8 +37,12 @@ public class RestEndpointPersistentEntity extends AbstractPersistentEntity<Endpo
         return URI;
     }
 
-    private UriTemplate formulateURI() {
-        UriTemplate uriTemplate = getMapping().getMappedForm().getUriTemplate();
+    public String getContentType() {
+        return contentType;
+    }
+
+    private UriTemplate formulateURI(Endpoint endpoint) {
+        UriTemplate uriTemplate = endpoint.getUriTemplate();
         if(uriTemplate != null) {
             return uriTemplate;
         }

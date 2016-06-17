@@ -17,6 +17,7 @@ class GetSpec extends RxGormSpec {
         given:"A canned response"
         def mock = client.expect {
             uri '/people/1'
+            accept("application/json")
         }
         .respond {
             json {
