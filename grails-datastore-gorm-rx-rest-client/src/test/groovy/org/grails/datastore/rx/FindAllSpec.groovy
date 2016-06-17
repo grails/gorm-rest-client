@@ -106,5 +106,33 @@ class FindAllSpec extends RxGormSpec {
         mock.verify()
         p.name == "Fred"
         p.age == 10
-        dateFormat.format(p.dateOfBirth) == "2006-07-09T00:00+0000"    }
+        dateFormat.format(p.dateOfBirth) == "2006-07-09T00:00+0000"
+    }
+
+    void "Test the findAll method with id criterion and other criterion produces the right query"() {
+        given:"A canned response"
+        def mock = client.expect {
+            uri '/people/1?age=10'
+        }
+        .respond {
+            json {
+                id 1
+                name "Fred"
+                age 10
+                dateOfBirth "2006-07-09T00:00+0000"
+            }
+        }
+
+        when:"A get request is issued"
+        Observable<Person> observable = Person.where {
+            id == 1L && age == 10
+        }.find()
+        Person p = observable.toBlocking().first()
+
+        then:"The result is correct"
+        mock.verify()
+        p.name == "Fred"
+        p.age == 10
+        dateFormat.format(p.dateOfBirth) == "2006-07-09T00:00+0000"
+    }
 }

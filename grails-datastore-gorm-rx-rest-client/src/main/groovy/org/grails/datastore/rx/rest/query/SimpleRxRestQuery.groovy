@@ -19,6 +19,7 @@ import org.grails.datastore.bson.codecs.BsonPersistentEntityCodec
 import org.grails.datastore.bson.json.JsonReader
 import org.grails.datastore.mapping.model.PersistentEntity
 import org.grails.datastore.mapping.query.Query
+import org.grails.datastore.mapping.query.QueryException
 import org.grails.datastore.rx.query.QueryState
 import org.grails.datastore.rx.query.RxQuery
 import org.grails.datastore.rx.rest.RxRestDatastoreClient
@@ -164,82 +165,96 @@ class SimpleRxRestQuery<T> extends Query implements RxQuery<T> {
     }
 
     protected StringBuilder buildParameters() {
-        def allCriteria = criteria.criteria
-        StringBuilder queryParameters = new StringBuilder("?")
-        boolean first = true
+        Query.Junction junction = criteria
 
-        if (!allCriteria.isEmpty()) {
+        return buildParameters(junction)
+
+    }
+
+    protected StringBuilder buildParameters(Query.Junction junction) {
+        if (!(junction instanceof Query.Conjunction)) {
+            throw new QueryException("Only conjunctions are supported by this query implementation")
+        } else {
+
+            def allCriteria = junction.criteria
+            StringBuilder queryParameters = new StringBuilder("?")
+            boolean first = true
+
+            if (!allCriteria.isEmpty()) {
 
 
-            for (Query.Criterion c in allCriteria) {
-                if (c instanceof Query.IdEquals) {
-                    uri = "$uri/${((Query.IdEquals) c).getValue()}"
-                    singleResult = true
-                } else if (c instanceof Query.Equals) {
-                    Query.Equals equals = (Query.Equals) c
-                    def value = equals.value
-
-                    if (equals.property == entity.getIdentity().name) {
-                        id = (Serializable) value
-                        uri = "$uri/${value}"
+                for (Query.Criterion c in allCriteria) {
+                    if (c instanceof Query.Conjunction) {
+                        return buildParameters((Query.Conjunction)c)
+                    } else if (c instanceof Query.IdEquals) {
+                        uri = "$uri/${((Query.IdEquals) c).getValue()}"
                         singleResult = true
-                    } else {
+                    } else if (c instanceof Query.Equals) {
+                        Query.Equals equals = (Query.Equals) c
+                        def value = equals.value
 
-                        if (first) {
-                            first = false
+                        if (equals.property == entity.getIdentity().name) {
+                            id = (Serializable) value
+                            uri = "$uri/${value}"
+                            singleResult = true
                         } else {
-                            queryParameters.append(AMPERSAND)
-                        }
 
-                        queryParameters
-                                .append(equals.property)
-                                .append(EQUALS)
-                                .append(URLEncoder.encode(value.toString(), datastoreClient.charset.toString()))
+                            if (first) {
+                                first = false
+                            } else {
+                                queryParameters.append(AMPERSAND)
+                            }
+
+                            queryParameters
+                                    .append(equals.property)
+                                    .append(EQUALS)
+                                    .append(URLEncoder.encode(value.toString(), datastoreClient.charset.toString()))
+                        }
                     }
                 }
             }
+
+
+
+            if (!singleResult) {
+                if (offset > 0) {
+                    if (first) {
+                        first = false
+                    } else {
+                        queryParameters.append(AMPERSAND)
+                    }
+                    queryParameters.append(datastoreClient.offsetParameter)
+                            .append(EQUALS)
+                            .append(offset)
+                }
+                if (max > -1) {
+                    if (first) {
+                        first = false
+                    } else {
+                        queryParameters.append(AMPERSAND)
+                    }
+                    queryParameters.append(datastoreClient.maxParameter)
+                            .append(EQUALS)
+                            .append(max)
+                }
+
+                for (Query.Order order in orderBy) {
+                    if (first) {
+                        first = false
+                    } else {
+                        queryParameters.append(AMPERSAND)
+                    }
+                    queryParameters.append(datastoreClient.sortParameter)
+                            .append(EQUALS)
+                            .append(order.property)
+                            .append(AMPERSAND)
+                            .append(datastoreClient.orderParameter)
+                            .append(EQUALS)
+                            .append(order.direction.name().toLowerCase())
+                }
+            }
+            return queryParameters
         }
-
-
-
-        if (!singleResult) {
-            if (offset > 0) {
-                if (first) {
-                    first = false
-                } else {
-                    queryParameters.append(AMPERSAND)
-                }
-                queryParameters.append(datastoreClient.offsetParameter)
-                        .append(EQUALS)
-                        .append(offset)
-            }
-            if (max > -1) {
-                if (first) {
-                    first = false
-                } else {
-                    queryParameters.append(AMPERSAND)
-                }
-                queryParameters.append(datastoreClient.maxParameter)
-                        .append(EQUALS)
-                        .append(max)
-            }
-
-            for (Query.Order order in orderBy) {
-                if (first) {
-                    first = false
-                } else {
-                    queryParameters.append(AMPERSAND)
-                }
-                queryParameters.append(datastoreClient.sortParameter)
-                        .append(EQUALS)
-                        .append(order.property)
-                        .append(AMPERSAND)
-                        .append(datastoreClient.orderParameter)
-                        .append(EQUALS)
-                        .append(order.direction.name().toLowerCase())
-            }
-        }
-        return queryParameters
     }
 
     @Override
