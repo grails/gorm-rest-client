@@ -1,6 +1,7 @@
 package org.grails.datastore.rx.rest
 
 import com.damnhandy.uri.template.UriTemplate
+import grails.http.MediaType
 import groovy.transform.CompileStatic
 import groovy.util.logging.Slf4j
 import io.netty.buffer.ByteBuf
@@ -246,7 +247,9 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient<ConnectionProvider
                     HttpClientResponse response = responseAndEntity.response
                     HttpResponseStatus status = response.status
                     if(status == HttpResponseStatus.CREATED ) {
-                        if("application/json" == response.getHeader(HttpHeaderNames.CONTENT_TYPE)) {
+                        String responseContentType = response.getHeader(HttpHeaderNames.CONTENT_TYPE)
+                        MediaType mediaType = responseContentType != null ? new MediaType(responseContentType) : null
+                        if(MediaType.JSON == mediaType) {
                             return Observable.combineLatest( Observable.just(responseAndEntity), response.content, { ResponseAndEntity res, Object content ->
                                 res.content = content
                                 return res

@@ -6,14 +6,11 @@ import groovy.util.logging.Slf4j
 import io.netty.buffer.ByteBuf
 import io.netty.buffer.ByteBufHolder
 import io.netty.buffer.ByteBufInputStream
-import io.netty.buffer.Unpooled
-import io.netty.handler.codec.base64.Base64
 import io.netty.handler.codec.http.HttpHeaderNames
 import io.netty.util.concurrent.BlockingOperationException
 import io.reactivex.netty.protocol.http.client.HttpClient
 import io.reactivex.netty.protocol.http.client.HttpClientRequest
 import io.reactivex.netty.protocol.http.client.HttpClientResponse
-import org.bson.AbstractBsonReader
 import org.bson.BsonType
 import org.bson.codecs.Codec
 import org.grails.datastore.bson.codecs.BsonPersistentEntityCodec
@@ -30,8 +27,6 @@ import rx.Observable
 import rx.Observer
 import rx.Subscriber
 import rx.observables.AsyncOnSubscribe
-import rx.subjects.PublishSubject
-
 /**
  * An implementation of {@link RxQuery} for REST that only supports the {@link org.grails.datastore.mapping.query.Query.Equals} constraint, converting each one into a request parameter
  *
@@ -44,7 +39,7 @@ class SimpleRxRestQuery<T> extends Query implements RxQuery<T> {
 
     protected static final char AMPERSAND = '&'
     protected static final char EQUALS = '='
-    protected static final char QUESTION_MARK = '='
+    protected static final char QUESTION_MARK = '?'
 
     final RxRestDatastoreClient datastoreClient
     final QueryState queryState
@@ -85,7 +80,7 @@ class SimpleRxRestQuery<T> extends Query implements RxQuery<T> {
         Collection<String> remaining = queryParameters.keySet().findAll() { String param -> !variables.contains(param)}
         if(!remaining.isEmpty()) {
             StringBuilder newUri = new StringBuilder(uri)
-            def i = uri.indexOf(QUESTION_MARK)
+            def i = uri.indexOf(String.valueOf(QUESTION_MARK))
             boolean hasNoParameters = i == -1
             if(hasNoParameters) {
                 newUri.append(QUESTION_MARK)

@@ -4,4 +4,6 @@ dependencies {
     compile "org.grails:grails-datastore-gorm-rx:$gormVersion"
     compile "org.grails:grails-datastore-gorm-bson:$gormVersion"
     compile 'io.reactivex:rxnetty-http:0.5.2-rc.2'
+
+    compile project(":grails-http-core")
 }

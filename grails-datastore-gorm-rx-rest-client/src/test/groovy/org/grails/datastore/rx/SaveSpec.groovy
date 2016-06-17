@@ -1,5 +1,6 @@
 package org.grails.datastore.rx
 
+import grails.http.HttpMethod
 import org.grails.datastore.rx.domain.Person
 import rx.Observable
 
@@ -16,7 +17,7 @@ class SaveSpec extends RxGormSpec {
         given:"A canned response"
         def mock = client.expect {
             uri '/people'
-            method "POST"
+            method HttpMethod.POST
             json {
                 name "Fred"
                 age 10
@@ -50,7 +51,7 @@ class SaveSpec extends RxGormSpec {
         given:"A canned response"
         def mock = client.expect {
             uri '/people/1'
-            method "PUT"
+            method HttpMethod.PUT
             json {
                 name "Fred"
                 age 10
