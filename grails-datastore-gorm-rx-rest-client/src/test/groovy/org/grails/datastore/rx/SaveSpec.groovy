@@ -1,6 +1,8 @@
 package org.grails.datastore.rx
 
 import grails.http.HttpMethod
+import grails.http.MediaType
+import org.grails.datastore.mapping.validation.ValidationException
 import org.grails.datastore.rx.domain.Person
 import rx.Observable
 
@@ -11,6 +13,34 @@ class SaveSpec extends RxGormSpec {
     @Override
     List<Class> getDomainClasses() {
         [Person]
+    }
+
+
+    void "Test saving an invalid entity produces a validation exception"() {
+        given:"A canned response"
+        def mock = client.expect {
+            uri '/people'
+            method HttpMethod.POST
+            json {
+                name "Fred"
+            }
+        }
+        .respond {
+            unprocessable()
+            contentType(MediaType.VND_ERROR)
+            json {
+                message "Age cannot be null"
+            }
+        }
+
+        when:"A get request is issued"
+        Person p = new Person(name: "Fred")
+        p.save().toBlocking().first()
+
+        then:"The result is correct"
+        thrown(ValidationException)
+        p.errors.hasErrors()
+        p.errors.allErrors[0].defaultMessage == "Age cannot be null"
     }
 
     void "Test saving a new entity produces a POST request"() {

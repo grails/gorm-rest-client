@@ -13,6 +13,8 @@ import org.grails.datastore.mapping.model.MappingConfigurationStrategy
 import org.grails.datastore.mapping.model.MappingFactory
 import org.grails.datastore.mapping.model.PersistentEntity
 import org.grails.datastore.mapping.model.config.GormMappingConfigurationStrategy
+import org.grails.datastore.rx.rest.codecs.VndErrorsCodec
+import org.springframework.validation.Errors
 
 /**
  * A {@link org.grails.datastore.mapping.model.MappingContext} for REST Client applications
@@ -25,6 +27,8 @@ class RestClientMappingContext extends AbstractMappingContext implements CodecPr
     final MappingFactory<Endpoint, Property> mappingFactory = new RestClientMappingFactory()
     final MappingConfigurationStrategy mappingSyntaxStrategy = new GormMappingConfigurationStrategy(mappingFactory)
     final CodecRegistry codecRegistry
+
+    private final Map<Class, Codec> codecs = [:]
 
     RestClientMappingContext(Class...classes) {
         addPersistentEntities(classes)
@@ -47,6 +51,24 @@ class RestClientMappingContext extends AbstractMappingContext implements CodecPr
         if(entity != null) {
             return new BsonPersistentEntityCodec(codecRegistry, entity)
         }
+        else {
+            Codec<T> codec = codecs.get(clazz)
+            if(codec != null) {
+                return codec
+            }
+            else if(Errors.isAssignableFrom(clazz)) {
+                return (Codec<T>)new VndErrorsCodec()
+            }
+        }
         return null
+    }
+
+    /**
+     * Adds a new codec
+     *
+     * @param codec The codec
+     */
+    void addCodec(Codec codec) {
+        codecs.put(codec.encoderClass, codec)
     }
 }

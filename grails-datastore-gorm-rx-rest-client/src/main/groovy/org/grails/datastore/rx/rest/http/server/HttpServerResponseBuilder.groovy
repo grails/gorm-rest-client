@@ -40,6 +40,16 @@ class HttpServerResponseBuilder {
     }
 
     /**
+     * Sets a UNPROCESSABLE_ENTITY status
+     *
+     * @return This builder
+     */
+
+    HttpServerResponseBuilder unprocessable() {
+        this.response.setStatus(HttpResponseStatus.UNPROCESSABLE_ENTITY)
+        return this
+    }
+    /**
      * Sets a NO_CONTENT status
      *
      * @return This builder

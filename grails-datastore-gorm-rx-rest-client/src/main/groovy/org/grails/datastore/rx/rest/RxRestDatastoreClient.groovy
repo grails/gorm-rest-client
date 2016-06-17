@@ -24,14 +24,19 @@ import org.bson.codecs.configuration.CodecRegistry
 import org.grails.datastore.bson.codecs.BsonPersistentEntityCodec
 import org.grails.datastore.bson.json.JsonReader
 import org.grails.datastore.bson.json.JsonWriter
+import org.grails.datastore.gorm.GormValidateable
 import org.grails.datastore.mapping.core.DatastoreUtils
 import org.grails.datastore.mapping.model.PersistentEntity
 import org.grails.datastore.mapping.query.Query
 import org.grails.datastore.mapping.reflect.EntityReflector
+import org.grails.datastore.mapping.validation.ValidationErrors
+import org.grails.datastore.mapping.validation.ValidationException
 import org.grails.datastore.rx.AbstractRxDatastoreClient
 import org.grails.datastore.rx.batch.BatchOperation
 import org.grails.datastore.rx.query.QueryState
 import org.grails.datastore.rx.rest.api.RxRestGormStaticApi
+import org.grails.datastore.rx.rest.codecs.ContextAwareCodec
+import org.grails.datastore.rx.rest.codecs.VndErrorsCodec
 import org.grails.datastore.rx.rest.config.RestClientMappingContext
 import org.grails.datastore.rx.rest.config.RestEndpointPersistentEntity
 import org.grails.datastore.rx.rest.exceptions.HttpClientException
@@ -40,6 +45,7 @@ import org.grails.gorm.rx.api.RxGormEnhancer
 import org.grails.gorm.rx.api.RxGormStaticApi
 import org.springframework.core.convert.converter.Converter
 import org.springframework.core.env.PropertyResolver
+import org.springframework.validation.Errors
 import rx.Observable
 import rx.Subscriber
 import rx.functions.Func2
@@ -246,9 +252,11 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient<ConnectionProvider
                 .switchMap { ResponseAndEntity responseAndEntity ->
                     HttpClientResponse response = responseAndEntity.response
                     HttpResponseStatus status = response.status
+                    String responseContentType = response.getHeader(HttpHeaderNames.CONTENT_TYPE)
+                    MediaType mediaType = responseContentType != null ? new MediaType(responseContentType) : null
+                    responseAndEntity.mediaType = mediaType
+
                     if(status == HttpResponseStatus.CREATED ) {
-                        String responseContentType = response.getHeader(HttpHeaderNames.CONTENT_TYPE)
-                        MediaType mediaType = responseContentType != null ? new MediaType(responseContentType) : null
                         if(MediaType.JSON == mediaType) {
                             return Observable.combineLatest( Observable.just(responseAndEntity), response.content, { ResponseAndEntity res, Object content ->
                                 res.content = content
@@ -262,8 +270,19 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient<ConnectionProvider
                     else if(status == HttpResponseStatus.OK) {
                         return Observable.just(responseAndEntity)
                     }
+                    else if(status == HttpResponseStatus.UNPROCESSABLE_ENTITY ) {
+                        if(MediaType.VND_ERROR == mediaType) {
+                            return Observable.combineLatest( Observable.just(responseAndEntity), response.content, { ResponseAndEntity res, Object content ->
+                                res.content = content
+                                return res
+                            } as Func2<ResponseAndEntity, Object, ResponseAndEntity>)
+                        }
+                        else {
+                            return Observable.just(responseAndEntity)
+                        }
+                    }
                     else {
-                        throw new HttpClientException("Server returned error response: $status, reason: ${status.reasonPhrase()} for host ${response.hostHeader}")
+                        throw new HttpClientException("Server returned error response: $status, reason: ${status.reasonPhrase()}")
                     }
                 }
                 .reduce(0L, { Long count, ResponseAndEntity responseAndContent ->
@@ -293,7 +312,7 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient<ConnectionProvider
                             }
                             catch(Throwable e) {
                                 log.error "Error querying [$responseAndContent.entity.name] object for URI [$responseAndContent.uri]", e
-                                throw new HttpClientException("Error decoding entity ... from response: $e.message", e)
+                                throw new HttpClientException("Error decoding entity $responseAndContent.entity.name from response: $e.message", e)
                             }
                             finally {
                                 byteBuf.release()
@@ -302,7 +321,40 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient<ConnectionProvider
 
                         }
                     }
-                    return (Number)count
+                else if(status == HttpResponseStatus.UNPROCESSABLE_ENTITY) {
+                    Errors errors
+
+                    if(MediaType.VND_ERROR == responseAndContent.mediaType && content != null) {
+                        try {
+                            ByteBuf byteBuf
+                            if (content instanceof ByteBuf) {
+                                byteBuf = (ByteBuf) content
+                            } else if (content instanceof ByteBufHolder) {
+                                byteBuf = ((ByteBufHolder) content).content()
+                            } else {
+                                throw new IllegalStateException("Received invalid response object: $content")
+                            }
+
+                            def reader = new InputStreamReader(new ByteBufInputStream(byteBuf))
+                            JsonReader jsonReader = new JsonReader(reader)
+                            Codec<Errors> codec = mappingContext.get(Errors, codecRegistry)
+                            def object = responseAndContent.object
+                            if(codec instanceof ContextAwareCodec) {
+                                ((ContextAwareCodec)codec).setContext(object)
+                            }
+                            errors = codec.decode(jsonReader, BsonPersistentEntityCodec.DEFAULT_DECODER_CONTEXT)
+                            ((GormValidateable)object).setErrors(errors)
+                        } catch (Throwable e) {
+                            throw new HttpClientException("Error decoding validation errors from response: $e.message", e )
+                        }
+
+                    }
+                    else {
+                        errors = new ValidationErrors(responseAndContent.object, responseAndContent.entity.name)
+                    }
+                    throw new ValidationException("Validation error occured saving entity", errors)
+                }
+                return (Number)count
             })
         }
     }
@@ -414,6 +466,7 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient<ConnectionProvider
         final Codec codec
 
         Object content
+        MediaType mediaType
 
         ResponseAndEntity(String uri, HttpClientResponse response, PersistentEntity entity, Object object, Codec codec) {
             this.uri = uri
