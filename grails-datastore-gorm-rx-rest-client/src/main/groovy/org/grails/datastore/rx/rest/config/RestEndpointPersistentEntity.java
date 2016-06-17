@@ -1,8 +1,7 @@
 package org.grails.datastore.rx.rest.config;
 
+import com.damnhandy.uri.template.UriTemplate;
 import groovy.transform.CompileStatic;
-import org.grails.datastore.mapping.keyvalue.mapping.config.Family;
-import org.grails.datastore.mapping.keyvalue.mapping.config.KeyValuePersistentEntity;
 import org.grails.datastore.mapping.model.*;
 
 import java.beans.Introspector;
@@ -15,7 +14,7 @@ import java.beans.Introspector;
  */
 @CompileStatic
 public class RestEndpointPersistentEntity extends AbstractPersistentEntity<Endpoint> {
-    final String URI;
+    final UriTemplate URI;
     final Endpoint mappedForm;
     final RestEndpointClassMapping classMapping;
 
@@ -32,17 +31,17 @@ public class RestEndpointPersistentEntity extends AbstractPersistentEntity<Endpo
         return classMapping;
     }
 
-    public String getURI() {
+    public UriTemplate getUriTemplate() {
         return URI;
     }
 
-    private String formulateURI() {
-        String uri = getMapping().getMappedForm().getUri();
-        if(uri != null) {
-            return uri;
+    private UriTemplate formulateURI() {
+        UriTemplate uriTemplate = getMapping().getMappedForm().getUriTemplate();
+        if(uriTemplate != null) {
+            return uriTemplate;
         }
         else {
-            return '/' + Introspector.decapitalize(getJavaClass().getSimpleName());
+            return UriTemplate.fromTemplate( '/' + Introspector.decapitalize(getJavaClass().getSimpleName()) + "{/id}" );
         }
     }
 

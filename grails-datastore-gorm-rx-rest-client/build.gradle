@@ -1,4 +1,5 @@
 dependencies {
+    compile 'com.damnhandy:handy-uri-templates:2.1.5'
     compile "org.codehaus.groovy:groovy-json:$groovyVersion"
     compile "org.grails:grails-datastore-gorm-rx:$gormVersion"
     compile "org.grails:grails-datastore-gorm-bson:$gormVersion"

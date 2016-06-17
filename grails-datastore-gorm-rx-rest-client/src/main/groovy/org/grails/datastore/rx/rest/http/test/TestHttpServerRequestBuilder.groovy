@@ -16,7 +16,7 @@ import java.nio.charset.Charset
  * <p>Below is an example:
  * <pre class="code">
  *   client.expect {
- *       uri '/foo/bar'
+ *       uriTemplate '/foo/bar'
  *       method "POST"
  *       contentType 'application/json'
  *       json {

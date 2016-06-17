@@ -16,7 +16,7 @@ import org.springframework.core.env.PropertyResolver
  * <code>
  *    TestRxRestDatastoreClient client = new TestRxRestDatastoreClient(Person)
  *    def mock = client.expect {
- *            uri '/person/1'
+ *            uriTemplate '/person/1'
  *    }
  *    .respond {
  *        json {

@@ -14,6 +14,6 @@ class Person implements RxEntity<Person> {
     Date dateOfBirth
 
     static mapping = {
-        uri "/people"
+        uri "/people{/id}"
     }
 }

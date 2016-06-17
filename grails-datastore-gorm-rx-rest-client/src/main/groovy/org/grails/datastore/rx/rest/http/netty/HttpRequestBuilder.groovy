@@ -34,7 +34,7 @@ class HttpRequestBuilder extends HttpMessageBuilder<HttpRequestBuilder>{
 
     /**
      * Sets the URI of the request
-     * @param uri The uri of the request
+     * @param uri The uriTemplate of the request
      * @return the request
      */
     HttpRequestBuilder uri(CharSequence uri) {

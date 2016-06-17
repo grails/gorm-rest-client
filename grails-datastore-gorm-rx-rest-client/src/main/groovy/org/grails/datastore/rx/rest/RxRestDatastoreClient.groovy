@@ -1,5 +1,6 @@
 package org.grails.datastore.rx.rest
 
+import com.damnhandy.uri.template.UriTemplate
 import groovy.transform.CompileStatic
 import groovy.util.logging.Slf4j
 import io.netty.buffer.ByteBuf
@@ -147,10 +148,14 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient<ConnectionProvider
         List<HttpClientRequest> observables = []
 
         for (PersistentEntity entity in operation.deletes.keySet()) {
+            RestEndpointPersistentEntity restEndpointPersistentEntity = (RestEndpointPersistentEntity)entity
+            UriTemplate uriTemplate = restEndpointPersistentEntity.uriTemplate
+            EntityReflector entityReflector = entity.getReflector()
+
             Map<Serializable, BatchOperation.EntityOperation> entityOperationMap = operation.deletes.get(entity)
             for (Serializable id in entityOperationMap.keySet()) {
-
-                String uri = pathResolver.getPath(entity.getJavaClass(), id)
+                def object = entityOperationMap.get(id).object
+                String uri = expandUri(uriTemplate, entityReflector, object)
 
                 HttpClientRequest requestObservable = httpClient
                         .createDelete(uri)
@@ -187,14 +192,17 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient<ConnectionProvider
         List<Observable> observables = []
 
         for(PersistentEntity entity in operation.inserts.keySet()) {
+            RestEndpointPersistentEntity restEndpointPersistentEntity = (RestEndpointPersistentEntity)entity
+            UriTemplate uriTemplate = restEndpointPersistentEntity.uriTemplate
+            EntityReflector entityReflector = entity.getReflector()
             Map<Serializable, BatchOperation.EntityOperation> entityOperationMap = operation.inserts.get(entity)
             Class type = entity.getJavaClass()
-            String uri = pathResolver.getPath(type)
             Codec codec = getCodecRegistry().get(type)
             String contentType = ((RestEndpointPersistentEntity) entity).getMapping().getMappedForm().contentType
 
             for(BatchOperation.EntityOperation entityOp in entityOperationMap.values()) {
-
+                def object = entityOp.object
+                String uri = expandUri(uriTemplate, entityReflector, object)
                 Observable postObservable = httpClient.createPost(uri)
                 postObservable = postObservable.setHeader( HttpHeaderNames.CONTENT_TYPE, contentType )
                 postObservable = prepareRequest(postObservable)
@@ -202,21 +210,25 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient<ConnectionProvider
                     createContentWriteObservable(codec, entityOp)
                 )
                 postObservable = postObservable.map { HttpClientResponse response ->
-                    return new ResponseAndEntity(uri, response, entity, entityOp.object, codec)
+                    return new ResponseAndEntity(uri, response, entity, object, codec)
                 }
                 observables.add(postObservable)
             }
         }
 
         for(PersistentEntity entity in operation.updates.keySet()) {
+            RestEndpointPersistentEntity restEndpointPersistentEntity = (RestEndpointPersistentEntity)entity
             Map<Serializable, BatchOperation.EntityOperation> entityOperationMap = operation.updates.get(entity)
             Class type = entity.getJavaClass()
             Codec codec = getCodecRegistry().get(type)
+            UriTemplate uriTemplate = restEndpointPersistentEntity.uriTemplate
             String contentType = ((RestEndpointPersistentEntity) entity).getMapping().getMappedForm().contentType
+            EntityReflector entityReflector = entity.getReflector()
 
             for(Serializable id in entityOperationMap.keySet()) {
                 BatchOperation.EntityOperation entityOp = entityOperationMap.get(id)
-                String uri = pathResolver.getPath(type, id)
+                def object = entityOp.object
+                String uri = expandUri(uriTemplate, entityReflector, object)
 
                 Observable putObservable = httpClient.createPut(uri)
                 putObservable = putObservable.setHeader( HttpHeaderNames.CONTENT_TYPE, contentType )
@@ -225,7 +237,7 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient<ConnectionProvider
                     createContentWriteObservable(codec, entityOp)
                 )
                 putObservable = putObservable.map { HttpClientResponse response ->
-                    return new ResponseAndEntity(uri, response, entity, entityOp.object, codec)
+                    return new ResponseAndEntity(uri, response, entity, object, codec)
                 }
                 observables.add(putObservable)
             }
@@ -298,26 +310,6 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient<ConnectionProvider
         }
     }
 
-    protected Observable<ByteBuf> createContentWriteObservable(Codec codec, BatchOperation.EntityOperation entityOp) {
-        Observable.create({ Subscriber<ByteBuf> subscriber ->
-            ByteBuf byteBuf = Unpooled.buffer()
-            try {
-                def writer = new OutputStreamWriter(new ByteBufOutputStream(byteBuf), charset)
-                def jsonWriter = new JsonWriter(writer)
-                codec.encode(jsonWriter, entityOp.object, BsonPersistentEntityCodec.DEFAULT_ENCODER_CONTEXT)
-
-                subscriber.onNext(byteBuf)
-            } catch (Throwable e) {
-                log.error "Error encoding object [$entityOp.object] to JSON: $e.message", e
-                subscriber.onError(e)
-            }
-            finally {
-                subscriber.onCompleted()
-            }
-
-        } as Observable.OnSubscribe<ByteBuf>)
-    }
-
     @Override
     void doClose() {
         // no-op
@@ -338,6 +330,39 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient<ConnectionProvider
     @Override
     ConnectionProviderFactory getNativeInterface() {
         return connectionProviderFactory
+    }
+
+    protected Observable<ByteBuf> createContentWriteObservable(Codec codec, BatchOperation.EntityOperation entityOp) {
+        Observable.create({ Subscriber<ByteBuf> subscriber ->
+            ByteBuf byteBuf = Unpooled.buffer()
+            try {
+                def writer = new OutputStreamWriter(new ByteBufOutputStream(byteBuf), charset)
+                def jsonWriter = new JsonWriter(writer)
+                codec.encode(jsonWriter, entityOp.object, BsonPersistentEntityCodec.DEFAULT_ENCODER_CONTEXT)
+
+                subscriber.onNext(byteBuf)
+            } catch (Throwable e) {
+                log.error "Error encoding object [$entityOp.object] to JSON: $e.message", e
+                subscriber.onError(e)
+            }
+            finally {
+                subscriber.onCompleted()
+            }
+
+        } as Observable.OnSubscribe<ByteBuf>)
+    }
+
+    protected String expandUri(UriTemplate uriTemplate, EntityReflector entityReflector, object) {
+        Map<String, Object> vars = [:]
+        for (var in uriTemplate.variables) {
+            def value = entityReflector.getProperty(object, var)
+            if (value != null) {
+                vars.put(var, value)
+            }
+        }
+
+        String uri = uriTemplate.expand(vars)
+        uri
     }
 
     protected void initialize(RestClientMappingContext mappingContext) {

@@ -1,7 +1,6 @@
 package org.grails.datastore.rx.rest.paths
 
 import groovy.transform.CompileStatic
-import org.grails.datastore.mapping.model.MappingContext
 import org.grails.datastore.rx.rest.config.RestClientMappingContext
 import org.grails.datastore.rx.rest.config.RestEndpointPersistentEntity
 
@@ -23,7 +22,7 @@ class DefaultResourcePathResolver implements ResourcePathResolver {
     @Override
     String getPath(Class resource) {
         RestEndpointPersistentEntity entity = mappingContext.getPersistentEntity(resource.getName())
-        return entity.getURI()
+        return entity.getUriTemplate()
     }
 
     @Override

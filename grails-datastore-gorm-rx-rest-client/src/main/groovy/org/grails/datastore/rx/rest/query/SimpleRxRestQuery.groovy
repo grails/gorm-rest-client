@@ -1,5 +1,6 @@
 package org.grails.datastore.rx.rest.query
 
+import com.damnhandy.uri.template.UriTemplate
 import groovy.transform.CompileStatic
 import groovy.util.logging.Slf4j
 import io.netty.buffer.ByteBuf
@@ -23,6 +24,8 @@ import org.grails.datastore.mapping.query.QueryException
 import org.grails.datastore.rx.query.QueryState
 import org.grails.datastore.rx.query.RxQuery
 import org.grails.datastore.rx.rest.RxRestDatastoreClient
+import org.grails.datastore.rx.rest.config.RestEndpointPersistentEntity
+import org.springframework.util.LinkedMultiValueMap
 import rx.Observable
 import rx.Observer
 import rx.Subscriber
@@ -47,15 +50,15 @@ class SimpleRxRestQuery<T> extends Query implements RxQuery<T> {
 
     protected boolean singleResult = false
     protected Serializable id = null
-    protected String uri
     protected Class<T> type
+    protected final UriTemplate uriTemplate
 
     SimpleRxRestQuery(RxRestDatastoreClient client, PersistentEntity entity, QueryState queryState = new QueryState()) {
         super(null, entity)
         this.datastoreClient = client
         this.queryState = queryState
         this.type = entity.getJavaClass()
-        this.uri = datastoreClient.pathResolver.getPath(type)
+        this.uriTemplate = ((RestEndpointPersistentEntity)entity).getUriTemplate()
     }
 
     @Override
@@ -64,7 +67,7 @@ class SimpleRxRestQuery<T> extends Query implements RxQuery<T> {
 
         Codec codec = datastoreClient.getMappingContext().get(type, datastoreClient.codecRegistry)
 
-        StringBuilder queryParameters = buildParameters()
+        LinkedMultiValueMap<String,Object> queryParameters = buildParameters()
 
         if(id != null) {
             T loadedEntity = queryState.getLoadedEntity(type, id)
@@ -73,9 +76,36 @@ class SimpleRxRestQuery<T> extends Query implements RxQuery<T> {
             }
         }
 
-        def queryString = queryParameters.toString()
-        if(queryString.length() > 1) {
-            uri = "${uri}${queryString}"
+        String uri = uriTemplate.expand((Map<String,Object>)queryParameters)
+        List variables = Arrays.asList(uriTemplate.getVariables())
+        Collection<String> remaining = queryParameters.keySet().findAll() { String param -> !variables.contains(param)}
+        if(!remaining.isEmpty()) {
+            StringBuilder newUri = new StringBuilder(uri)
+            def i = uri.indexOf('?')
+            boolean hasNoParameters = i == -1
+            if(hasNoParameters) {
+                newUri.append('?')
+            }
+
+            def charset = datastoreClient.charset.toString()
+            for(String param in remaining) {
+
+                def values = queryParameters.get(param)
+                for(val in values) {
+                    if(!hasNoParameters) {
+                        newUri.append('&')
+                    }
+                    else {
+                        hasNoParameters = false
+                    }
+
+                    newUri
+                        .append(param)
+                        .append('=')
+                        .append(URLEncoder.encode(val.toString(), charset))
+                }
+            }
+            uri = newUri.toString()
         }
 
         HttpClientRequest httpClientRequest = httpClient.createGet(uri)
@@ -164,20 +194,20 @@ class SimpleRxRestQuery<T> extends Query implements RxQuery<T> {
 
     }
 
-    protected StringBuilder buildParameters() {
+    protected LinkedMultiValueMap<String,Object> buildParameters() {
         Query.Junction junction = criteria
 
         return buildParameters(junction)
 
     }
 
-    protected StringBuilder buildParameters(Query.Junction junction) {
+    protected LinkedMultiValueMap<String,Object> buildParameters(Query.Junction junction) {
         if (!(junction instanceof Query.Conjunction)) {
             throw new QueryException("Only conjunctions are supported by this query implementation")
         } else {
 
             def allCriteria = junction.criteria
-            StringBuilder queryParameters = new StringBuilder("?")
+            LinkedMultiValueMap<String,Object> queryParameters = new LinkedMultiValueMap<>()
             boolean first = true
 
             if (!allCriteria.isEmpty()) {
@@ -187,7 +217,9 @@ class SimpleRxRestQuery<T> extends Query implements RxQuery<T> {
                     if (c instanceof Query.Conjunction) {
                         return buildParameters((Query.Conjunction)c)
                     } else if (c instanceof Query.IdEquals) {
-                        uri = "$uri/${((Query.IdEquals) c).getValue()}"
+                        id = (Serializable)((Query.IdEquals) c).getValue()
+                        String idName = entity.getMapping().getIdentifier().getIdentifierName()[0]
+                        queryParameters.add(idName, id)
                         singleResult = true
                     } else if (c instanceof Query.Equals) {
                         Query.Equals equals = (Query.Equals) c
@@ -195,20 +227,22 @@ class SimpleRxRestQuery<T> extends Query implements RxQuery<T> {
 
                         if (equals.property == entity.getIdentity().name) {
                             id = (Serializable) value
-                            uri = "$uri/${value}"
+                            String idName = entity.getMapping().getIdentifier().getIdentifierName()[0]
+                            queryParameters.add(idName, id)
                             singleResult = true
                         } else {
 
                             if (first) {
                                 first = false
                             } else {
-                                queryParameters.append(AMPERSAND)
+//                                queryParameters.append(AMPERSAND)
                             }
 
-                            queryParameters
-                                    .append(equals.property)
-                                    .append(EQUALS)
-                                    .append(URLEncoder.encode(value.toString(), datastoreClient.charset.toString()))
+                            queryParameters.add(equals.property, equals.value)
+//                            queryParameters
+//                                    .append(equals.property)
+//                                    .append(EQUALS)
+//                                    .append(URLEncoder.encode(value.toString(), datastoreClient.charset.toString()))
                         }
                     }
                 }
@@ -218,39 +252,45 @@ class SimpleRxRestQuery<T> extends Query implements RxQuery<T> {
 
             if (!singleResult) {
                 if (offset > 0) {
-                    if (first) {
-                        first = false
-                    } else {
-                        queryParameters.append(AMPERSAND)
-                    }
-                    queryParameters.append(datastoreClient.offsetParameter)
-                            .append(EQUALS)
-                            .append(offset)
+//                    if (first) {
+//                        first = false
+//                    } else {
+//                        queryParameters.append(AMPERSAND)
+//                    }
+//                    queryParameters.append(datastoreClient.offsetParameter)
+//                            .append(EQUALS)
+//                            .append(offset)
+                    queryParameters.add(datastoreClient.offsetParameter, offset)
                 }
                 if (max > -1) {
-                    if (first) {
-                        first = false
-                    } else {
-                        queryParameters.append(AMPERSAND)
-                    }
-                    queryParameters.append(datastoreClient.maxParameter)
-                            .append(EQUALS)
-                            .append(max)
+//                    if (first) {
+//                        first = false
+//                    } else {
+//                        queryParameters.append(AMPERSAND)
+//                    }
+//                    queryParameters.append(datastoreClient.maxParameter)
+//                            .append(EQUALS)
+//                            .append(max)
+
+                    queryParameters.add(datastoreClient.maxParameter, max)
                 }
 
                 for (Query.Order order in orderBy) {
-                    if (first) {
-                        first = false
-                    } else {
-                        queryParameters.append(AMPERSAND)
-                    }
-                    queryParameters.append(datastoreClient.sortParameter)
-                            .append(EQUALS)
-                            .append(order.property)
-                            .append(AMPERSAND)
-                            .append(datastoreClient.orderParameter)
-                            .append(EQUALS)
-                            .append(order.direction.name().toLowerCase())
+//                    if (first) {
+//                        first = false
+//                    } else {
+//                        queryParameters.append(AMPERSAND)
+//                    }
+//                    queryParameters.append(datastoreClient.sortParameter)
+//                            .append(EQUALS)
+//                            .append(order.property)
+//                            .append(AMPERSAND)
+//                            .append(datastoreClient.orderParameter)
+//                            .append(EQUALS)
+//                            .append(order.direction.name().toLowerCase())
+
+                    queryParameters.add(datastoreClient.sortParameter, order.property)
+                    queryParameters.add(datastoreClient.orderParameter, order.direction.name().toLowerCase())
                 }
             }
             return queryParameters
