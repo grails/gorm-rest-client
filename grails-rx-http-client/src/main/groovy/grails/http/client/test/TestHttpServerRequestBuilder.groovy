@@ -1,13 +1,13 @@
-package org.grails.datastore.rx.rest.http.test
+package grails.http.client.test
 
+import grails.http.client.builder.server.HttpServerRequestBuilder
+import grails.http.client.builder.server.HttpServerResponseBuilder
 import groovy.transform.CompileStatic
 import io.netty.buffer.ByteBuf
 import io.netty.handler.codec.http.DefaultFullHttpRequest
 import io.netty.handler.codec.http.HttpMethod
 import io.netty.handler.codec.http.HttpVersion
 import io.reactivex.netty.protocol.http.server.HttpServerRequest
-import org.grails.datastore.rx.rest.http.server.HttpServerRequestBuilder
-import org.grails.datastore.rx.rest.http.server.HttpServerResponseBuilder
 
 import java.nio.charset.Charset
 /**
@@ -50,6 +50,20 @@ class TestHttpServerRequestBuilder {
     int expectedTotal = 0
     Charset charset = Charset.forName("UTF-8")
     Closure responseClosure
+    HttpTestServer httpTestServer
+
+    TestHttpServerRequestBuilder(HttpTestServer httpTestServer) {
+        this.httpTestServer = httpTestServer
+    }
+
+    InetSocketAddress socketAddress() {
+        (InetSocketAddress)this.httpTestServer.socketAddress
+    }
+
+    URI serverURI() {
+        def address = socketAddress()
+        return new URI("http://localhost:${address.port}")
+    }
 
     TestHttpServerRequestBuilder expect(@DelegatesTo(HttpServerRequestBuilder) Closure callable) {
         expectedTotal++

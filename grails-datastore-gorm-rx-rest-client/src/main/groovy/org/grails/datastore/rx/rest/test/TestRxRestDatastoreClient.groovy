@@ -1,10 +1,10 @@
 package org.grails.datastore.rx.rest.test
 
+import grails.http.client.builder.HttpRequestBuilder
+import grails.http.client.test.HttpTestServer
+import grails.http.client.test.TestHttpServerRequestBuilder
 import groovy.transform.CompileStatic
 import org.grails.datastore.rx.rest.RxRestDatastoreClient
-import org.grails.datastore.rx.rest.http.netty.HttpRequestBuilder
-import org.grails.datastore.rx.rest.http.test.HttpTestServer
-import org.grails.datastore.rx.rest.http.test.TestHttpServerRequestBuilder
 import org.springframework.core.env.PropertyResolver
 
 /**

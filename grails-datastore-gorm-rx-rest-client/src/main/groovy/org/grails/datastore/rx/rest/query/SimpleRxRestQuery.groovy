@@ -1,6 +1,7 @@
 package org.grails.datastore.rx.rest.query
 
 import com.damnhandy.uri.template.UriTemplate
+import grails.http.client.exceptions.HttpClientException
 import groovy.transform.CompileStatic
 import groovy.util.logging.Slf4j
 import io.netty.buffer.ByteBuf
@@ -22,7 +23,6 @@ import org.grails.datastore.rx.query.QueryState
 import org.grails.datastore.rx.query.RxQuery
 import org.grails.datastore.rx.rest.RxRestDatastoreClient
 import org.grails.datastore.rx.rest.config.RestEndpointPersistentEntity
-import org.grails.datastore.rx.rest.exceptions.HttpClientException
 import org.springframework.util.LinkedMultiValueMap
 import rx.Observable
 import rx.Observer

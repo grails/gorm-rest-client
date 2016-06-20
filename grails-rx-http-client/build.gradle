@@ -1,0 +1,18 @@
+dependencies {
+    compile "io.reactivex:rxnetty-http:$rxNettyVersion"
+    compile "io.netty:netty-handler-proxy:$nettyVersion"
+    compile "org.codehaus.groovy:groovy-json:$groovyVersion"
+    compile "org.codehaus.groovy:groovy-xml:$groovyVersion"
+
+    compile project(":grails-http-core")
+
+    testCompile "org.spockframework:spock-core:1.0-groovy-2.4"
+}
+
+
+bintray {
+    pkg {
+        name = 'http-client'
+    }
+}
+

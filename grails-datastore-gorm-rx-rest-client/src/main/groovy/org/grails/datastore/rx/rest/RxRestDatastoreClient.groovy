@@ -2,6 +2,9 @@ package org.grails.datastore.rx.rest
 
 import com.damnhandy.uri.template.UriTemplate
 import grails.http.MediaType
+import grails.http.client.RxHttpClientBuilder
+import grails.http.client.cfg.DefaultConfiguration
+import grails.http.client.exceptions.HttpClientException
 import groovy.transform.CompileStatic
 import groovy.util.logging.Slf4j
 import io.netty.buffer.ByteBuf
@@ -36,10 +39,8 @@ import org.grails.datastore.rx.batch.BatchOperation
 import org.grails.datastore.rx.query.QueryState
 import org.grails.datastore.rx.rest.api.RxRestGormStaticApi
 import org.grails.datastore.rx.rest.codecs.ContextAwareCodec
-import org.grails.datastore.rx.rest.codecs.VndErrorsCodec
 import org.grails.datastore.rx.rest.config.RestClientMappingContext
 import org.grails.datastore.rx.rest.config.RestEndpointPersistentEntity
-import org.grails.datastore.rx.rest.exceptions.HttpClientException
 import org.grails.datastore.rx.rest.query.SimpleRxRestQuery
 import org.grails.gorm.rx.api.RxGormEnhancer
 import org.grails.gorm.rx.api.RxGormStaticApi
@@ -60,7 +61,7 @@ import java.text.SimpleDateFormat
  */
 @CompileStatic
 @Slf4j
-class RxRestDatastoreClient extends AbstractRxDatastoreClient<ConnectionProviderFactory> {
+class RxRestDatastoreClient extends AbstractRxDatastoreClient<RxHttpClientBuilder> {
 
     public static final String SETTING_HOST = "grails.gorm.rest.host"
     public static final String SETTING_PORT = "grails.gorm.rest.port"
@@ -88,6 +89,7 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient<ConnectionProvider
     final String offsetParameter
     final String maxParameter
     final String sortParameter
+    final RxHttpClientBuilder rxHttpClientBuilder
 
     RxRestDatastoreClient(SocketAddress serverAddress, PropertyResolver configuration, RestClientMappingContext mappingContext) {
         super(mappingContext)
@@ -100,6 +102,9 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient<ConnectionProvider
         // TODO: populate pool configuration
         connectionProviderFactory = SingleHostPoolingProviderFactory.create(pool)
         this.codecRegistry = mappingContext.codecRegistry
+        def clientConfiguration = new DefaultConfiguration()
+        clientConfiguration.setEncoding(charset.toString())
+        this.rxHttpClientBuilder = new RxHttpClientBuilder(connectionProviderFactory, clientConfiguration)
 
         this.orderParameter = configuration.getProperty(SETTING_ORDER_PARAMETER, String, DEFAULT_ORDER_PARAMETER)
         this.offsetParameter = configuration.getProperty(SETTING_OFFSET_PARAMETER, String, DEFAULT_OFFSET_PARAMETER)
@@ -377,8 +382,8 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient<ConnectionProvider
     }
 
     @Override
-    ConnectionProviderFactory getNativeInterface() {
-        return connectionProviderFactory
+    RxHttpClientBuilder getNativeInterface() {
+        return rxHttpClientBuilder
     }
 
     protected Observable<ByteBuf> createContentWriteObservable(Codec codec, BatchOperation.EntityOperation entityOp) {
@@ -395,6 +400,7 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient<ConnectionProvider
                 subscriber.onError(e)
             }
             finally {
+                byteBuf.release()
                 subscriber.onCompleted()
             }
 
@@ -441,7 +447,7 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient<ConnectionProvider
     }
 
     protected static RestClientMappingContext createMappingContext(PropertyResolver configuration, Class... classes) {
-        return new RestClientMappingContext(classes)
+        return new RestClientMappingContext(configuration, classes)
     }
 
     HttpClientRequest<ByteBuf, ByteBuf> prepareRequest(HttpClientRequest<ByteBuf, ByteBuf> httpClientRequest) {

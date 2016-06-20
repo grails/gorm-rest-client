@@ -62,7 +62,8 @@ enum HttpStatus implements CharSequence {
     VARIANT_ALSO_NEGOTIATES(506, "Variant Also Negotiates"),
     INSUFFICIENT_STORAGE(507, "Insufficient Storage"),
     NOT_EXTENDED(510, "Not Extended"),
-    NETWORK_AUTHENTICATION_REQUIRED(511, "Network Authentication Required")
+    NETWORK_AUTHENTICATION_REQUIRED(511, "Network Authentication Required"),
+    CONNECTION_TIMED_OUT(522, "Connection Timed Out")
 
     private static final Map<Integer, HttpStatus> BY_CODE
 

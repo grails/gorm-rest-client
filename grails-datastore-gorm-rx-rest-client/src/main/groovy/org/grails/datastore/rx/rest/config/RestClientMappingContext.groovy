@@ -14,7 +14,9 @@ import org.grails.datastore.mapping.model.MappingFactory
 import org.grails.datastore.mapping.model.PersistentEntity
 import org.grails.datastore.mapping.model.config.GormMappingConfigurationStrategy
 import org.grails.datastore.rx.rest.codecs.VndErrorsCodec
+import org.springframework.core.env.PropertyResolver
 import org.springframework.validation.Errors
+
 
 /**
  * A {@link org.grails.datastore.mapping.model.MappingContext} for REST Client applications
@@ -31,6 +33,13 @@ class RestClientMappingContext extends AbstractMappingContext implements CodecPr
     private final Map<Class, Codec> codecs = [:]
 
     RestClientMappingContext(Class...classes) {
+        this(null, classes)
+    }
+
+    RestClientMappingContext(PropertyResolver configuration, Class...classes) {
+        if(configuration != null) {
+            configure(configuration)
+        }
         addPersistentEntities(classes)
         this.codecRegistry = CodecRegistries.fromProviders(new CodecExtensions(), this)
     }

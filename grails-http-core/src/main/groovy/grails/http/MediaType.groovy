@@ -7,7 +7,7 @@ import groovy.transform.EqualsAndHashCode
  * Represents a media type
  *
  * @author Graeme Rocher
- * @since 6.0
+ * @since 1.0
  */
 @CompileStatic
 @EqualsAndHashCode(includes = ['name'])

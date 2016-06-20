@@ -1,12 +1,12 @@
-package org.grails.datastore.rx.rest.http.test
+package grails.http.client.test
 
+import grails.http.client.builder.server.HttpServerResponseBuilder
 import groovy.transform.CompileStatic
 import groovy.util.logging.Slf4j
 import io.reactivex.netty.protocol.http.server.HttpServer
 import io.reactivex.netty.protocol.http.server.HttpServerRequest
 import io.reactivex.netty.protocol.http.server.HttpServerResponse
 import io.reactivex.netty.protocol.http.server.RequestHandler
-import org.grails.datastore.rx.rest.http.server.HttpServerResponseBuilder
 import rx.Observable
 
 import java.nio.charset.Charset
@@ -22,13 +22,21 @@ import java.nio.charset.Charset
 @Slf4j
 class HttpTestServer implements Closeable {
 
-    @Delegate TestHttpServerRequestBuilder requestBuilder = new TestHttpServerRequestBuilder()
+    @Delegate TestHttpServerRequestBuilder requestBuilder
     final HttpServer server
     final SocketAddress socketAddress
 
     HttpTestServer() {
         server = HttpServer.newServer()
         socketAddress = startServer()
+        requestBuilder = new TestHttpServerRequestBuilder(this)
+    }
+
+    HttpTestServer(String address) {
+        URI uri = new URI(address)
+        server = HttpServer.newServer(new InetSocketAddress(uri.host, uri.port))
+        socketAddress = startServer()
+        requestBuilder = new TestHttpServerRequestBuilder(this)
     }
 
     public SocketAddress startServer() {

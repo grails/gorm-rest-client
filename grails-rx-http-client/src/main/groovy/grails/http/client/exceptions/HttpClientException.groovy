@@ -1,4 +1,4 @@
-package org.grails.datastore.rx.rest.exceptions
+package grails.http.client.exceptions
 
 import groovy.transform.CompileStatic
 

@@ -1,8 +1,11 @@
-package org.grails.datastore.rx.rest.http.netty
+package grails.http.client.builder
 
 
 import groovy.json.StreamingJsonBuilder
 import groovy.transform.CompileStatic
+import groovy.util.slurpersupport.GPathResult
+import groovy.xml.StreamingMarkupBuilder
+
 //import groovy.util.slurpersupport.GPathResult
 //import groovy.xml.StreamingMarkupBuilder
 import io.netty.buffer.ByteBuf
@@ -122,33 +125,33 @@ abstract class HttpMessageBuilder<T> {
         return (T)this
     }
 
-//    /**
-//     * Sets the body of the request to the XML defined by the closure. Uses {@link groovy.xml.StreamingMarkupBuilder} to produce the XML
-//     *
-//     * @param closure The closure that defines the XML
-//     * @return This customizer
-//     */
-//    T xml(@DelegatesTo(StreamingMarkupBuilder)Closure closure) {
-//        def b = new StreamingMarkupBuilder()
-//        Writable markup = (Writable)b.bind(closure)
-//        markup.writeTo(writer)
-//        writer.flush()
-//        defaultContentType(httpMessage.headers(), "application/xml")
-//        return (T)this
-//    }
+    /**
+     * Sets the body of the request to the XML defined by the closure. Uses {@link groovy.xml.StreamingMarkupBuilder} to produce the XML
+     *
+     * @param closure The closure that defines the XML
+     * @return This customizer
+     */
+    T xml(@DelegatesTo(StreamingMarkupBuilder)Closure closure) {
+        def b = new StreamingMarkupBuilder()
+        Writable markup = (Writable)b.bind(closure)
+        markup.writeTo(writer)
+        writer.flush()
+        defaultContentType(httpMessage.headers(), "application/xml")
+        return (T)this
+    }
 
-//    /**
-//     * Sets the body of the request to the XML GPathResult argument.
-//     *
-//     * @param xml The XML to be used as the body of the request
-//     * @return This customizer
-//     */
-//    T xml(GPathResult xml) {
-//        xml.writeTo(writer)
-//        writer.flush()
-//        defaultContentType(httpMessage.headers(), "application/xml")
-//        return (T)this
-//    }
+    /**
+     * Sets the body of the request to the XML GPathResult argument.
+     *
+     * @param xml The XML to be used as the body of the request
+     * @return This customizer
+     */
+    T xml(GPathResult xml) {
+        xml.writeTo(writer)
+        writer.flush()
+        defaultContentType(httpMessage.headers(), "application/xml")
+        return (T)this
+    }
 
 
     protected StreamingJsonBuilder prepareJsonBuilder() {

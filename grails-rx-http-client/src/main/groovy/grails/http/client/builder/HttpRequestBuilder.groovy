@@ -1,4 +1,4 @@
-package org.grails.datastore.rx.rest.http.netty
+package grails.http.client.builder
 
 import groovy.transform.CompileDynamic
 import groovy.transform.CompileStatic
@@ -18,7 +18,7 @@ import java.nio.charset.Charset
  * @since 1.0
  */
 @CompileStatic
-class HttpRequestBuilder extends HttpMessageBuilder<HttpRequestBuilder>{
+class HttpRequestBuilder extends HttpMessageBuilder<HttpRequestBuilder> {
 
     final FullHttpRequest request
     HttpRequest wrapped

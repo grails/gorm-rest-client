@@ -1,5 +1,6 @@
-package org.grails.datastore.rx.rest.http.server
+package grails.http.client.builder.server
 
+import grails.http.client.builder.HttpRequestBuilder
 import groovy.transform.CompileStatic
 import io.netty.channel.Channel
 import io.netty.channel.embedded.EmbeddedChannel
@@ -7,7 +8,6 @@ import io.netty.handler.codec.http.FullHttpRequest
 import io.reactivex.netty.protocol.http.server.HttpServerRequest
 import io.reactivex.netty.protocol.http.server.HttpServerToConnectionBridge
 import io.reactivex.netty.protocol.http.server.events.HttpServerEventPublisher
-import org.grails.datastore.rx.rest.http.netty.HttpRequestBuilder
 
 import java.nio.charset.Charset
 /**

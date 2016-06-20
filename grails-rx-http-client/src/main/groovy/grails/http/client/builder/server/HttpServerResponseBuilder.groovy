@@ -1,13 +1,13 @@
-package org.grails.datastore.rx.rest.http.server
+package grails.http.client.builder.server
 
 import groovy.json.StreamingJsonBuilder
 import groovy.transform.CompileStatic
+import groovy.util.slurpersupport.GPathResult
+import groovy.xml.StreamingMarkupBuilder
 import io.netty.handler.codec.http.HttpHeaderNames
 import io.netty.handler.codec.http.HttpResponseStatus
 import io.reactivex.netty.protocol.http.server.HttpServerResponse
 import rx.Observable
-import rx.Observer
-import rx.observables.AsyncOnSubscribe
 
 import java.nio.charset.Charset
 
@@ -196,6 +196,50 @@ class HttpServerResponseBuilder {
         defaultJsonContentType()
         response.writeStringAndFlushOnEach(Observable.just(json)).toBlocking().first()
         return (HttpServerResponseBuilder)this
+    }
+
+    /**
+     * Sets the body of the request to the XML string argument.
+     *
+     * @param xml The XML to be used as the body of the request
+     * @return This customizer
+     */
+    HttpServerResponseBuilder xml(String xml) {
+        response.setHeader(HttpHeaderNames.CONTENT_TYPE, "application/xml")
+        response.writeStringAndFlushOnEach(Observable.just(xml)).toBlocking().first()
+        return this
+    }
+
+    /**
+     * Sets the body of the request to the XML defined by the closure. Uses {@link groovy.xml.StreamingMarkupBuilder} to produce the XML
+     *
+     * @param closure The closure that defines the XML
+     * @return This customizer
+     */
+    HttpServerResponseBuilder xml(@DelegatesTo(StreamingMarkupBuilder)Closure closure) {
+        response.setHeader(HttpHeaderNames.CONTENT_TYPE, "application/xml")
+        StringWriter writer = new StringWriter()
+        def b = new StreamingMarkupBuilder()
+        Writable markup = (Writable)b.bind(closure)
+        markup.writeTo(writer)
+        writer.flush()
+        response.writeStringAndFlushOnEach(Observable.just(writer.toString())).toBlocking().first()
+        return this
+    }
+
+    /**
+     * Sets the body of the request to the XML GPathResult argument.
+     *
+     * @param xml The XML to be used as the body of the request
+     * @return This customizer
+     */
+    HttpServerResponseBuilder xml(GPathResult xml) {
+        response.setHeader(HttpHeaderNames.CONTENT_TYPE, "application/xml")
+        StringWriter writer = new StringWriter()
+        xml.writeTo(writer)
+        writer.flush()
+        response.writeStringAndFlushOnEach(Observable.just(writer.toString())).toBlocking().first()
+        return this
     }
 
 
