@@ -1,6 +1,7 @@
 package org.grails.datastore.rx.rest
 
 import com.damnhandy.uri.template.UriTemplate
+import grails.gorm.rx.RxEntity
 import grails.http.MediaType
 import grails.http.client.RxHttpClientBuilder
 import grails.http.client.cfg.DefaultConfiguration
@@ -411,13 +412,19 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient<RxHttpClientBuilde
         Map<String, Object> vars = [:]
         for (var in uriTemplate.variables) {
             def value = entityReflector.getProperty(object, var)
-            if (value != null) {
+            if(value instanceof RxEntity) {
+                def id = getMappingContext().getProxyHandler().getIdentifier(value)
+                if(id != null) {
+                    vars.put(var, value)
+                }
+            }
+            else if (value != null) {
                 vars.put(var, value)
             }
         }
 
         String uri = uriTemplate.expand(vars)
-        uri
+        return uri
     }
 
     protected void initialize(RestClientMappingContext mappingContext) {
