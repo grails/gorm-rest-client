@@ -1,6 +1,7 @@
 package org.grails.datastore.rx.rest.config
 
 import groovy.transform.CompileStatic
+import org.bson.codecs.BsonValueCodecProvider
 import org.bson.codecs.Codec
 import org.bson.codecs.configuration.CodecProvider
 import org.bson.codecs.configuration.CodecRegistries
@@ -13,6 +14,7 @@ import org.grails.datastore.mapping.model.MappingConfigurationStrategy
 import org.grails.datastore.mapping.model.MappingFactory
 import org.grails.datastore.mapping.model.PersistentEntity
 import org.grails.datastore.mapping.model.config.GormMappingConfigurationStrategy
+import org.grails.datastore.rx.rest.codecs.RestEntityCodec
 import org.grails.datastore.rx.rest.codecs.VndErrorsCodec
 import org.springframework.core.env.PropertyResolver
 import org.springframework.validation.Errors
@@ -41,7 +43,7 @@ class RestClientMappingContext extends AbstractMappingContext implements CodecPr
             configure(configuration)
         }
         addPersistentEntities(classes)
-        this.codecRegistry = CodecRegistries.fromProviders(new CodecExtensions(), this)
+        this.codecRegistry = CodecRegistries.fromProviders(new CodecExtensions(), this, new BsonValueCodecProvider())
     }
 
     @Override
@@ -58,7 +60,7 @@ class RestClientMappingContext extends AbstractMappingContext implements CodecPr
     def <T> Codec<T> get(Class<T> clazz, CodecRegistry registry) {
         PersistentEntity entity = getPersistentEntity(clazz.name)
         if(entity != null) {
-            return new BsonPersistentEntityCodec(codecRegistry, entity)
+            return new RestEntityCodec(codecRegistry, entity)
         }
         else {
             Codec<T> codec = codecs.get(clazz)

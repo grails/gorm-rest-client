@@ -74,6 +74,8 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient<RxHttpClientBuilde
     public static final String SETTING_SORT_PARAMETER = "grails.gorm.rest.parameters.sort"
     public static final String SETTING_MAX_PARAMETER = "grails.gorm.rest.parameters.max"
     public static final String SETTING_OFFSET_PARAMETER = "grails.gorm.rest.parameters.offset"
+
+
     public static final String DEFAULT_ORDER_PARAMETER = "order"
     public static final String DEFAULT_OFFSET_PARAMETER = "offset"
     public static final String DEFAULT_SORT_PARAMETER = "sort"
