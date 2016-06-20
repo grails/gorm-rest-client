@@ -14,14 +14,19 @@ import io.reactivex.netty.protocol.http.client.HttpClientRequest
 import io.reactivex.netty.protocol.http.client.HttpClientResponse
 import org.bson.BsonType
 import org.bson.codecs.Codec
+import org.bson.codecs.configuration.CodecRegistry
 import org.grails.datastore.bson.codecs.BsonPersistentEntityCodec
 import org.grails.datastore.bson.json.JsonReader
 import org.grails.datastore.mapping.model.PersistentEntity
 import org.grails.datastore.mapping.query.Query
 import org.grails.datastore.mapping.query.QueryException
+import org.grails.datastore.rx.bson.codecs.QueryStateAwareCodeRegistry
+import org.grails.datastore.rx.internal.RxDatastoreClientImplementor
 import org.grails.datastore.rx.query.QueryState
 import org.grails.datastore.rx.query.RxQuery
+import org.grails.datastore.rx.query.RxQueryUtils
 import org.grails.datastore.rx.rest.RxRestDatastoreClient
+import org.grails.datastore.rx.rest.codecs.RestEntityCodeRegistry
 import org.grails.datastore.rx.rest.config.RestEndpointPersistentEntity
 import org.springframework.util.LinkedMultiValueMap
 import rx.Observable
@@ -65,8 +70,8 @@ class SimpleRxRestQuery<T> extends Query implements RxQuery<T> {
     @Override
     Observable<T> findAll() {
         HttpClient httpClient = datastoreClient.createHttpClient()
-
-        Codec codec = datastoreClient.getMappingContext().get(type, datastoreClient.codecRegistry)
+        CodecRegistry codecRegistry = new RestEntityCodeRegistry(datastoreClient.getCodecRegistry(), queryState, datastoreClient)
+        Codec codec = codecRegistry.get(type)
 
         LinkedMultiValueMap<String,Object> queryParameters = buildParameters()
 
@@ -128,13 +133,13 @@ class SimpleRxRestQuery<T> extends Query implements RxQuery<T> {
             }
 
             if(singleResult) {
-                return Observable.create( { Subscriber subscriber ->
+                def baseObservable = Observable.create({ Subscriber subscriber ->
                     def reader = new InputStreamReader(new ByteBufInputStream(byteBuf))
                     try {
                         def decoded = codec.decode(new JsonReader(reader), BsonPersistentEntityCodec.DEFAULT_DECODER_CONTEXT)
                         subscriber.onNext decoded
                     }
-                    catch(Throwable e) {
+                    catch (Throwable e) {
                         log.error "Error querying [$entity.name] object for URI [$uri]", e
                         subscriber.onError(e)
                     }
@@ -145,6 +150,8 @@ class SimpleRxRestQuery<T> extends Query implements RxQuery<T> {
                     }
 
                 } as Observable.OnSubscribe)
+
+                return RxQueryUtils.processFetchStrategies((RxDatastoreClientImplementor)datastoreClient, baseObservable, entity, fetchStrategies, queryState)
             }
             else {
                 byteBuf.retain()
@@ -298,6 +305,7 @@ class SimpleRxRestQuery<T> extends Query implements RxQuery<T> {
 
     @Override
     Observable<T> singleResult() {
+        singleResult = true
         return findAll().first()
     }
 

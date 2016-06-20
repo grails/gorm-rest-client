@@ -60,7 +60,7 @@ class RestClientMappingContext extends AbstractMappingContext implements CodecPr
     def <T> Codec<T> get(Class<T> clazz, CodecRegistry registry) {
         PersistentEntity entity = getPersistentEntity(clazz.name)
         if(entity != null) {
-            return new RestEntityCodec(codecRegistry, entity)
+            return new RestEntityCodec(entity, registry)
         }
         else {
             Codec<T> codec = codecs.get(clazz)

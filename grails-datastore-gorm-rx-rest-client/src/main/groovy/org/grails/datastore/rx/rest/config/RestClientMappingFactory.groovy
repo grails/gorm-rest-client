@@ -10,10 +10,10 @@ import org.grails.datastore.mapping.model.MappingFactory
  * @since 6.0
  */
 @CompileStatic
-class RestClientMappingFactory extends AbstractGormMappingFactory<Endpoint, Property> {
+class RestClientMappingFactory extends AbstractGormMappingFactory<Endpoint, Attribute> {
     @Override
-    protected Class<Property> getPropertyMappedFormType() {
-        return Property
+    protected Class<Attribute> getPropertyMappedFormType() {
+        return Attribute
     }
 
     @Override

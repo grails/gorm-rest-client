@@ -37,6 +37,7 @@ import org.grails.datastore.mapping.validation.ValidationErrors
 import org.grails.datastore.mapping.validation.ValidationException
 import org.grails.datastore.rx.AbstractRxDatastoreClient
 import org.grails.datastore.rx.batch.BatchOperation
+import org.grails.datastore.rx.bson.CodecsRxDatastoreClient
 import org.grails.datastore.rx.query.QueryState
 import org.grails.datastore.rx.rest.api.RxRestGormStaticApi
 import org.grails.datastore.rx.rest.codecs.ContextAwareCodec
@@ -62,7 +63,7 @@ import java.text.SimpleDateFormat
  */
 @CompileStatic
 @Slf4j
-class RxRestDatastoreClient extends AbstractRxDatastoreClient<RxHttpClientBuilder> {
+class RxRestDatastoreClient extends AbstractRxDatastoreClient<RxHttpClientBuilder> implements CodecsRxDatastoreClient<RxHttpClientBuilder> {
 
     public static final String SETTING_HOST = "grails.gorm.rest.host"
     public static final String SETTING_PORT = "grails.gorm.rest.port"
@@ -471,6 +472,11 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient<RxHttpClientBuilde
     @Override
     RxGormStaticApi createStaticApi(PersistentEntity entity) {
         return new RxRestGormStaticApi(entity, this)
+    }
+
+    @Override
+    def <T> Codec<T> get(Class<T> clazz, CodecRegistry registry) {
+        getMappingContext().get(clazz, codecRegistry)
     }
 
     private static class ResponseAndEntity {

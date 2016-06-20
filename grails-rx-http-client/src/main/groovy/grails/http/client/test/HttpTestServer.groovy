@@ -40,15 +40,18 @@ class HttpTestServer implements Closeable {
     }
 
     public SocketAddress startServer() {
+        int requestCount = 0
         server.start(new RequestHandler() {
             @Override
             Observable<Void> handle(HttpServerRequest request, HttpServerResponse response) {
                 requestBuilder.inboundMessages.add(request)
                 HttpServerResponseBuilder builder = new HttpServerResponseBuilder(response, Charset.forName("UTF-8"))
-                if(requestBuilder.responseClosure != null) {
-                    requestBuilder.responseClosure.setDelegate(builder)
+
+                Closure responseClosure = requestCount < requestBuilder.expectedResponses.size() ? requestBuilder.expectedResponses[requestCount++] : null
+                if(responseClosure != null) {
+                    responseClosure.setDelegate(builder)
                     try {
-                        requestBuilder.responseClosure.call()
+                        responseClosure.call()
                     } catch (Throwable e) {
                         log.error("respond block produced error: $e.message", e )
                         throw e

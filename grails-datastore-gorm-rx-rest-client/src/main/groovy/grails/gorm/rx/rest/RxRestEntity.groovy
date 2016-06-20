@@ -10,4 +10,6 @@ import org.grails.datastore.gorm.schemaless.DynamicAttributes
  * @since 1.0
  */
 trait RxRestEntity<D> implements RxEntity<D>, DynamicAttributes {
+
+
 }

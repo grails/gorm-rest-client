@@ -11,7 +11,7 @@ import io.reactivex.netty.protocol.http.server.HttpServerRequest
 
 import java.nio.charset.Charset
 /**
- * Allows for mocking and testing usages of {@link AsyncHttpBuilder} in application code
+ * Allows for mocking and testing usages of {@link grails.http.client.RxHttpClientBuilder} in application code
  *
  * <p>Below is an example:
  * <pre class="code">
@@ -46,10 +46,11 @@ import java.nio.charset.Charset
 @CompileStatic
 class TestHttpServerRequestBuilder {
     List<HttpServerRequest> expectedRequests = []
+    List<Closure> expectedResponses = []
     List<HttpServerRequest> inboundMessages = []
+
     int expectedTotal = 0
     Charset charset = Charset.forName("UTF-8")
-    Closure responseClosure
     HttpTestServer httpTestServer
 
     TestHttpServerRequestBuilder(HttpTestServer httpTestServer) {
@@ -79,11 +80,11 @@ class TestHttpServerRequestBuilder {
         expectedRequests.clear()
         inboundMessages.clear()
         expectedTotal = 0
-        responseClosure = null
+        expectedResponses.clear()
     }
 
     TestHttpServerRequestBuilder respond(@DelegatesTo(HttpServerResponseBuilder) Closure callable) {
-        this.responseClosure = callable
+        expectedResponses.add(callable)
         return this
     }
 
@@ -109,6 +110,8 @@ class TestHttpServerRequestBuilder {
                 assert false : "Found non-request object among outbound messages"
             }
         }
+        expectedRequests.clear()
+        expectedTotal = 0
         inboundMessages.clear()
         return true
     }

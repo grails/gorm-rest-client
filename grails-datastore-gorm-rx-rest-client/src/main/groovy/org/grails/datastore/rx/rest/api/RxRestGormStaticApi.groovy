@@ -16,8 +16,8 @@ import rx.Observable
 @InheritConstructors
 class RxRestGormStaticApi<D> extends RxGormStaticApi<D> {
 
-    @Override
-    Observable<D> get(Serializable id, Map<String, Object> args) {
-        return datastoreClient.get(persistentClass, id)
-    }
+//    @Override
+//    Observable<D> get(Serializable id, Map<String, Object> args) {
+//        return datastoreClient.get(persistentClass, id)
+//    }
 }
