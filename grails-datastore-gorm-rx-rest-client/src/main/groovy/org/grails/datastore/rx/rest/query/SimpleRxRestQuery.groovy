@@ -1,6 +1,7 @@
 package org.grails.datastore.rx.rest.query
 
 import com.damnhandy.uri.template.UriTemplate
+import grails.gorm.rx.rest.RxRestEntity
 import grails.http.client.exceptions.HttpClientException
 import groovy.transform.CompileStatic
 import groovy.util.logging.Slf4j
@@ -21,6 +22,7 @@ import org.grails.datastore.mapping.model.PersistentEntity
 import org.grails.datastore.mapping.query.Query
 import org.grails.datastore.mapping.query.QueryException
 import org.grails.datastore.rx.bson.codecs.QueryStateAwareCodeRegistry
+import org.grails.datastore.rx.bson.codecs.RxBsonPersistentEntityCodec
 import org.grails.datastore.rx.internal.RxDatastoreClientImplementor
 import org.grails.datastore.rx.query.QueryState
 import org.grails.datastore.rx.query.RxQuery
@@ -58,13 +60,16 @@ class SimpleRxRestQuery<T> extends Query implements RxQuery<T> {
     protected final String contentType
 
     SimpleRxRestQuery(RxRestDatastoreClient client, PersistentEntity entity, QueryState queryState = new QueryState()) {
+        this(client, (RestEndpointPersistentEntity)entity, ((RestEndpointPersistentEntity)entity).getUriTemplate(), queryState)
+    }
+
+    SimpleRxRestQuery(RxRestDatastoreClient client, RestEndpointPersistentEntity entity, UriTemplate uriTemplate, QueryState queryState = new QueryState()) {
         super(null, entity)
         this.datastoreClient = client
         this.queryState = queryState
         this.type = entity.getJavaClass()
-        def restEntity = (RestEndpointPersistentEntity) entity
-        this.contentType = restEntity.getContentType()
-        this.uriTemplate = restEntity.getUriTemplate()
+        this.contentType = entity.getContentType()
+        this.uriTemplate = uriTemplate
     }
 
     @Override

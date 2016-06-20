@@ -385,6 +385,16 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient<RxHttpClientBuilde
         return new SimpleRxRestQuery(this, entity, queryState)
     }
 
+
+    final Query createQuery(Class type, UriTemplate uriTemplate, QueryState queryState) {
+        def entity = mappingContext.getPersistentEntity(type.name)
+        if(entity == null) {
+            throw new IllegalArgumentException("Type [$type.name] is not a persistent type")
+        }
+
+        return new SimpleRxRestQuery(this, entity, uriTemplate, queryState)
+    }
+
     @Override
     RxHttpClientBuilder getNativeInterface() {
         return rxHttpClientBuilder

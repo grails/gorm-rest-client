@@ -2,6 +2,7 @@ package org.grails.datastore.rx.domain
 
 import grails.gorm.annotation.Entity
 import grails.gorm.rx.rest.RxRestEntity
+import grails.http.MediaType
 
 /**
  * Created by graemerocher on 20/06/16.
@@ -24,6 +25,7 @@ class Club implements RxRestEntity<Club> {
     static hasOne = [stadium:Stadium]
 
     static mapping = {
+        contentType MediaType.HAL_JSON
         captain uri:"/club/{club}/captain"
     }
 }
