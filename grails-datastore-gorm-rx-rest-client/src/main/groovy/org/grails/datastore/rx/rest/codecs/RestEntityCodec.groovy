@@ -207,23 +207,37 @@ class RestEntityCodec extends RxBsonPersistentEntityCodec {
                 EntityReflector entityReflector = entity.reflector
                 while (bsonType != BsonType.END_OF_DOCUMENT) {
                     String associationName = jsonReader.readName()
+                    EntityAccess entityAccess = entity.mappingContext.createEntityAccess(entity, dynamicAttributes)
                     PersistentProperty property = entity.getPropertyByName(associationName)
                     if (property instanceof Association) {
                         Association association = (Association) property
+                        EntityReflector associationReflector = association.associatedEntity.reflector
                         bsonType = jsonReader.currentBsonType
-                        Codec codec = codecRegistry.get(association.getAssociatedEntity().javaClass)
+                        Codec codec = new RestEntityCodecRegistry(codecRegistry, queryState, mappingContext).get(association.getAssociatedEntity().javaClass)
+                        Association inverseSide = association.inverseSide
                         if (codec != null) {
                             if (bsonType == BsonType.DOCUMENT && property instanceof ToOne) {
                                 def decoded = codec.decode(jsonReader, DEFAULT_DECODER_CONTEXT)
+                                if(inverseSide != null) {
+                                    associationReflector.setProperty(decoded, inverseSide.name, dynamicAttributes)
+                                }
                                 entityReflector.setProperty(dynamicAttributes, associationName, decoded)
                             } else if (bsonType == BsonType.ARRAY && property instanceof ToMany) {
                                 jsonReader.readStartArray()
                                 List allDecoded = []
                                 while (bsonType != BsonType.END_OF_DOCUMENT) {
                                     def decoded = codec.decode(jsonReader, DEFAULT_DECODER_CONTEXT)
+
+                                    if(inverseSide != null) {
+                                        associationReflector.setProperty(decoded, inverseSide.name, dynamicAttributes)
+                                    }
                                     allDecoded.add(decoded)
+                                    bsonType = jsonReader.readBsonType()
                                 }
-                                entity.mappingContext.createEntityAccess(entity, dynamicAttributes).setProperty(associationName, allDecoded)
+
+
+
+                                entityAccess.setProperty(associationName, allDecoded)
                                 jsonReader.readEndArray()
                             } else {
                                 jsonReader.skipValue()

@@ -26,7 +26,7 @@ import org.grails.datastore.rx.query.QueryState
 import org.grails.datastore.rx.query.RxQuery
 import org.grails.datastore.rx.query.RxQueryUtils
 import org.grails.datastore.rx.rest.RxRestDatastoreClient
-import org.grails.datastore.rx.rest.codecs.RestEntityCodeRegistry
+import org.grails.datastore.rx.rest.codecs.RestEntityCodecRegistry
 import org.grails.datastore.rx.rest.RestEndpointPersistentEntity
 import org.springframework.util.LinkedMultiValueMap
 import rx.Observable
@@ -73,7 +73,7 @@ class SimpleRxRestQuery<T> extends Query implements RxQuery<T> {
     @Override
     Observable<T> findAll() {
         HttpClient httpClient = datastoreClient.createHttpClient()
-        CodecRegistry codecRegistry = new RestEntityCodeRegistry(datastoreClient.getCodecRegistry(), queryState, datastoreClient)
+        CodecRegistry codecRegistry = new RestEntityCodecRegistry(datastoreClient.getCodecRegistry(), queryState, datastoreClient.mappingContext)
         Codec codec = codecRegistry.get(type)
 
         LinkedMultiValueMap<String,Object> queryParameters = buildParameters()
