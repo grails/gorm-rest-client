@@ -57,4 +57,50 @@ class ToManySpec extends RxGormSpec {
         c.teams*.name.sort() == ["First Team", "Under 21s"]
         mock.verify()
     }
+
+    void "Test a hasMany association read from HAL links produces the right query"() {
+        given:"A canned response"
+        def mock = client.expect {
+            uri '/club/1'
+            accept(MediaType.HAL_JSON)
+        }
+        .respond {
+            json {
+                _links {
+                    teams {
+                        href "/club/{name}/teams/all"
+                    }
+                }
+                id 1
+                name "Manchester United"
+            }
+        }
+        mock.expect {
+            uri '/club/Manchester%20United/teams/all'
+            accept(MediaType.HAL_JSON)
+        }
+        .respond {
+            json {
+                _embedded {
+                    teams(
+                            [
+                                    [id:1L,name: "First Team"],
+                                    [id:2L,name: "Under 21s"]
+                            ]
+                    )
+                }
+                totalCount 2
+            }
+        }
+
+        when:"A get request is issued"
+        Observable<Club> observable = Club.get(1)
+        Club c = observable.toBlocking().first()
+
+        then:"The teams are a lazy collection"
+        c.teams instanceof RxPersistentCollection
+        c.teams.size() == 2
+        c.teams*.name.sort() == ["First Team", "Under 21s"]
+        mock.verify()
+    }
 }

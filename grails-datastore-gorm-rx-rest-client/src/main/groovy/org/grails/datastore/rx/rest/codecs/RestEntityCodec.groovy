@@ -51,7 +51,7 @@ class RestEntityCodec extends RxBsonPersistentEntityCodec {
                 continue
             }
 
-            String uriToken = "{${entity.decapitalizedName}}"
+            String idToken = "{${entity.decapitalizedName}}"
             EntityReflector entityReflector = entity.reflector
             Serializable entityId = (Serializable) entityReflector.getIdentifier(dynamicAttributes)
             if (property instanceof Association && entityId != null) {
@@ -59,20 +59,25 @@ class RestEntityCodec extends RxBsonPersistentEntityCodec {
                 BsonDocument decoded = (BsonDocument) halLinks.get(associationName)
 
                 String uriStr = decoded.getString(HalConstants.HREF).value
-                if (uriStr.contains(uriToken)) {
+                if(uriStr.startsWith("http")) {
+                    uriStr = new URI(uriStr).path
+                }
+                uriStr = uriStr.replace("{/id}", "/$idToken")
+                uriStr = uriStr.replace(idToken, entityId.toString())
+                def uriTemplate = UriTemplate.fromTemplate(uriStr)
+                if (property instanceof ToOne) {
 
-                    uriStr = uriStr.replace(uriToken, entityId.toString())
-                    def uriTemplate = UriTemplate.fromTemplate(uriStr)
-                    if (property instanceof ToOne) {
-
-                        Query query = prepareQuery(datastoreClient, association, uriTemplate, entityReflector, dynamicAttributes)
+                    Query query = prepareQuery(datastoreClient, association, uriTemplate, entityReflector, dynamicAttributes)
+                    if(query != null) {
                         entityReflector.setProperty(
                                 dynamicAttributes,
                                 associationName,
                                 datastoreClient.proxy(query)
                         )
-                    } else if (property instanceof ToMany) {
-                        Query query = prepareQuery(datastoreClient, association, uriTemplate, entityReflector, dynamicAttributes)
+                    }
+                } else if (property instanceof ToMany) {
+                    Query query = prepareQuery(datastoreClient, association, uriTemplate, entityReflector, dynamicAttributes)
+                    if(query != null) {
                         Collection lazyCollection = RxCollectionUtils.createConcreteCollection(association, query, queryState)
                         entityReflector.setProperty(
                                 dynamicAttributes,
@@ -112,12 +117,17 @@ class RestEntityCodec extends RxBsonPersistentEntityCodec {
                         }
 
                         if(toMany) {
-                            populateUriTemplateVariables(query, entity.reflector, uri, dynamicAttributes)
-                            access.setPropertyNoConversion(associationName, RxCollectionUtils.createConcreteCollection(association, query, queryState))
+                            query = populateUriTemplateVariables(query, entity.reflector, uri, dynamicAttributes)
+                            if(query != null) {
+                                access.setPropertyNoConversion(associationName, RxCollectionUtils.createConcreteCollection(association, query, queryState))
+                            }
                         }
                         else {
-                            def proxy = client.proxy(query)
-                            access.setPropertyNoConversion(associationName, proxy)
+                            query = populateUriTemplateVariables(query, entity.reflector, uri, dynamicAttributes)
+                            if(query != null) {
+                                def proxy = client.proxy(query)
+                                access.setPropertyNoConversion(associationName, proxy)
+                            }
                         }
                     }
 
@@ -141,6 +151,10 @@ class RestEntityCodec extends RxBsonPersistentEntityCodec {
                 EntityReflector.PropertyReader reader = entityReflector.getPropertyReader(var)
                 if (reader != null) {
                     query.eq(var, reader.read(dynamicAttributes))
+                }
+                else {
+                    // unprocessable templated URI
+                    return null
                 }
             }
         }
