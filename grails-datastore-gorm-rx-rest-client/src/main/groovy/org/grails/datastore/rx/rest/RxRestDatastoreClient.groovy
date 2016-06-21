@@ -94,10 +94,12 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient<RxHttpClientBuilde
     final String maxParameter
     final String sortParameter
     final RxHttpClientBuilder rxHttpClientBuilder
+    protected final boolean allowBlockingOperations
 
     RxRestDatastoreClient(SocketAddress serverAddress, PropertyResolver configuration, RestClientMappingContext mappingContext) {
         super(mappingContext)
 
+        this.allowBlockingOperations = configuration.getProperty(SETTING_ALLOW_BLOCKING, Boolean, true)
         this.defaultClientHost = Observable.just(new Host(serverAddress))
         this.username = configuration.getProperty(SETTING_USERNAME, String, null)
         this.password = configuration.getProperty(SETTING_PASSWORD, String, null)
@@ -477,6 +479,11 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient<RxHttpClientBuilde
             httpClientRequest = httpClientRequest.addHeader HttpHeaderNames.AUTHORIZATION, "Basic $encoded".toString()
         }
         return httpClientRequest
+    }
+
+    @Override
+    boolean isAllowBlockingOperations() {
+        return this.allowBlockingOperations
     }
 
     @Override
