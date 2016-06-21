@@ -6,7 +6,6 @@ import groovy.transform.InheritConstructors
 import org.bson.BsonDocument
 import org.bson.BsonReader
 import org.bson.BsonType
-import org.bson.Document
 import org.bson.codecs.Codec
 import org.bson.codecs.DecoderContext
 import org.grails.datastore.bson.codecs.BsonPersistentEntityCodec
@@ -21,8 +20,7 @@ import org.grails.datastore.mapping.reflect.EntityReflector
 import org.grails.datastore.rx.bson.codecs.RxBsonPersistentEntityCodec
 import org.grails.datastore.rx.collection.RxCollectionUtils
 import org.grails.datastore.rx.rest.RxRestDatastoreClient
-import org.grails.datastore.rx.rest.config.Attribute
-import org.grails.datastore.rx.rest.config.RestEndpointPersistentEntity
+import org.grails.datastore.rx.rest.RestEndpointPersistentEntity
 import org.grails.datastore.rx.rest.json.HalConstants
 import org.grails.gorm.rx.api.RxGormEnhancer
 

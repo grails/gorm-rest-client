@@ -28,6 +28,7 @@ class MediaType implements CharSequence {
     public static final MediaType VND_ERROR = new MediaType("application/vnd.error+json")
 
     public static final String QUALITY_RATING = "1.0"
+    public static final String CHARSET_PARAMETER = "charset"
     public static final BigDecimal QUALITY_RATING_NUMBER = 1.0
 
     protected final String name

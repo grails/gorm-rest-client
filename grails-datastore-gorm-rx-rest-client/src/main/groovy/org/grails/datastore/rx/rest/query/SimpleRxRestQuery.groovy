@@ -1,7 +1,7 @@
 package org.grails.datastore.rx.rest.query
 
 import com.damnhandy.uri.template.UriTemplate
-import grails.gorm.rx.rest.RxRestEntity
+import grails.http.MediaType
 import grails.http.client.exceptions.HttpClientException
 import groovy.transform.CompileStatic
 import groovy.util.logging.Slf4j
@@ -21,15 +21,13 @@ import org.grails.datastore.bson.json.JsonReader
 import org.grails.datastore.mapping.model.PersistentEntity
 import org.grails.datastore.mapping.query.Query
 import org.grails.datastore.mapping.query.QueryException
-import org.grails.datastore.rx.bson.codecs.QueryStateAwareCodeRegistry
-import org.grails.datastore.rx.bson.codecs.RxBsonPersistentEntityCodec
 import org.grails.datastore.rx.internal.RxDatastoreClientImplementor
 import org.grails.datastore.rx.query.QueryState
 import org.grails.datastore.rx.query.RxQuery
 import org.grails.datastore.rx.query.RxQueryUtils
 import org.grails.datastore.rx.rest.RxRestDatastoreClient
 import org.grails.datastore.rx.rest.codecs.RestEntityCodeRegistry
-import org.grails.datastore.rx.rest.config.RestEndpointPersistentEntity
+import org.grails.datastore.rx.rest.RestEndpointPersistentEntity
 import org.springframework.util.LinkedMultiValueMap
 import rx.Observable
 import rx.Observer
@@ -57,7 +55,7 @@ class SimpleRxRestQuery<T> extends Query implements RxQuery<T> {
     protected Serializable id = null
     protected Class<T> type
     protected final UriTemplate uriTemplate
-    protected final String contentType
+    protected final MediaType contentType
 
     SimpleRxRestQuery(RxRestDatastoreClient client, PersistentEntity entity, QueryState queryState = new QueryState()) {
         this(client, (RestEndpointPersistentEntity)entity, ((RestEndpointPersistentEntity)entity).getUriTemplate(), queryState)
@@ -98,7 +96,7 @@ class SimpleRxRestQuery<T> extends Query implements RxQuery<T> {
                 newUri.append(QUESTION_MARK)
             }
 
-            def charset = datastoreClient.charset.toString()
+            def charset = ((RestEndpointPersistentEntity)entity).getCharset()
             for(String param in remaining) {
 
                 def values = queryParameters.get(param)
@@ -113,7 +111,7 @@ class SimpleRxRestQuery<T> extends Query implements RxQuery<T> {
                     newUri
                         .append(param)
                         .append(EQUALS)
-                        .append(URLEncoder.encode(val.toString(), charset))
+                        .append(URLEncoder.encode(val.toString(), charset.toString()))
                 }
             }
             uri = newUri.toString()
@@ -121,8 +119,8 @@ class SimpleRxRestQuery<T> extends Query implements RxQuery<T> {
 
         HttpClientRequest httpClientRequest = httpClient.createGet(uri)
 
-        httpClientRequest = datastoreClient.prepareRequest(httpClientRequest)
-        httpClientRequest = httpClientRequest.setHeader(HttpHeaderNames.ACCEPT, contentType)
+        httpClientRequest = datastoreClient.prepareRequest((RestEndpointPersistentEntity)entity, httpClientRequest)
+        httpClientRequest = httpClientRequest.setHeader(HttpHeaderNames.ACCEPT, contentType.toString())
 
         httpClientRequest
                 .switchMap { HttpClientResponse response ->

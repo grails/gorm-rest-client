@@ -6,7 +6,6 @@ import org.bson.codecs.Codec
 import org.bson.codecs.configuration.CodecProvider
 import org.bson.codecs.configuration.CodecRegistries
 import org.bson.codecs.configuration.CodecRegistry
-import org.grails.datastore.bson.codecs.BsonPersistentEntityCodec
 import org.grails.datastore.bson.codecs.CodecExtensions
 import org.grails.datastore.mapping.config.Property
 import org.grails.datastore.mapping.model.AbstractMappingContext
@@ -14,6 +13,7 @@ import org.grails.datastore.mapping.model.MappingConfigurationStrategy
 import org.grails.datastore.mapping.model.MappingFactory
 import org.grails.datastore.mapping.model.PersistentEntity
 import org.grails.datastore.mapping.model.config.GormMappingConfigurationStrategy
+import org.grails.datastore.rx.rest.RestEndpointPersistentEntity
 import org.grails.datastore.rx.rest.codecs.RestEntityCodec
 import org.grails.datastore.rx.rest.codecs.VndErrorsCodec
 import org.springframework.core.env.PropertyResolver

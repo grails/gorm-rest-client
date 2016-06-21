@@ -1,11 +1,16 @@
-package org.grails.datastore.rx.rest.config;
+package org.grails.datastore.rx.rest;
 
 import com.damnhandy.uri.template.UriTemplate;
+import grails.gorm.rx.rest.interceptor.RequestInterceptor;
+import grails.http.MediaType;
 import groovy.transform.CompileStatic;
 import org.grails.datastore.mapping.model.*;
 import org.grails.datastore.mapping.model.types.Association;
+import org.grails.datastore.rx.rest.config.Attribute;
+import org.grails.datastore.rx.rest.config.Endpoint;
 
 import java.beans.Introspector;
+import java.nio.charset.Charset;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -17,11 +22,13 @@ import java.util.Map;
  */
 @CompileStatic
 public class RestEndpointPersistentEntity extends AbstractPersistentEntity<Endpoint> {
-    final UriTemplate URI;
-    final String contentType;
-    final Endpoint mappedForm;
-    final RestEndpointClassMapping classMapping;
-    final Map<String, UriTemplate> associationEndPoints = new LinkedHashMap<>();
+    protected final UriTemplate URI;
+    protected final MediaType contentType;
+    protected final Endpoint mappedForm;
+    protected final RestEndpointClassMapping classMapping;
+    protected final Map<String, UriTemplate> associationEndPoints = new LinkedHashMap<>();
+    protected final RequestInterceptor[] interceptors;
+    protected final Charset charset ;
 
     public RestEndpointPersistentEntity(Class javaClass, MappingContext context) {
         super(javaClass, context);
@@ -30,6 +37,8 @@ public class RestEndpointPersistentEntity extends AbstractPersistentEntity<Endpo
         Endpoint endpoint = getMapping().getMappedForm();
         this.URI = formulateURI(endpoint);
         this.contentType = endpoint.getContentType();
+        this.interceptors = endpoint.getInterceptors();
+        this.charset = endpoint.getCharset();
     }
 
     @Override
@@ -73,12 +82,32 @@ public class RestEndpointPersistentEntity extends AbstractPersistentEntity<Endpo
         return this.associationEndPoints.get(associationName);
     }
 
+    /**
+     * @return The URI template for this endpoint
+     */
     public UriTemplate getUriTemplate() {
         return URI;
     }
 
-    public String getContentType() {
+    /**
+     * @return The content type of this endpoint
+     */
+    public MediaType getContentType() {
         return contentType;
+    }
+
+
+    /**
+     * @return The charset to use
+     */
+    public Charset getCharset() {
+        return this.charset;
+    }
+    /**
+     * @return Any configured request interceptors
+     */
+    public RequestInterceptor[] getRequestInterceptors() {
+        return this.interceptors;
     }
 
     private UriTemplate formulateURI(Endpoint endpoint) {

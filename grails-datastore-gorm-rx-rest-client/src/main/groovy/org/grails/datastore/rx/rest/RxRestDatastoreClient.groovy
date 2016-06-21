@@ -2,6 +2,7 @@ package org.grails.datastore.rx.rest
 
 import com.damnhandy.uri.template.UriTemplate
 import grails.gorm.rx.RxEntity
+import grails.gorm.rx.rest.interceptor.RequestInterceptor
 import grails.http.MediaType
 import grails.http.client.RxHttpClientBuilder
 import grails.http.client.cfg.DefaultConfiguration
@@ -29,6 +30,7 @@ import org.grails.datastore.bson.codecs.BsonPersistentEntityCodec
 import org.grails.datastore.bson.json.JsonReader
 import org.grails.datastore.bson.json.JsonWriter
 import org.grails.datastore.gorm.GormValidateable
+import org.grails.datastore.mapping.config.ConfigurationUtils
 import org.grails.datastore.mapping.core.DatastoreUtils
 import org.grails.datastore.mapping.model.PersistentEntity
 import org.grails.datastore.mapping.query.Query
@@ -42,7 +44,6 @@ import org.grails.datastore.rx.query.QueryState
 import org.grails.datastore.rx.rest.api.RxRestGormStaticApi
 import org.grails.datastore.rx.rest.codecs.ContextAwareCodec
 import org.grails.datastore.rx.rest.config.RestClientMappingContext
-import org.grails.datastore.rx.rest.config.RestEndpointPersistentEntity
 import org.grails.datastore.rx.rest.query.SimpleRxRestQuery
 import org.grails.gorm.rx.api.RxGormEnhancer
 import org.grails.gorm.rx.api.RxGormStaticApi
@@ -71,6 +72,8 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient<RxHttpClientBuilde
     public static final String SETTING_POOL_OPTIONS = "grails.gorm.rest.pool.options"
     public static final String SETTING_USERNAME = "grails.gorm.rest.username"
     public static final String SETTING_PASSWORD = "grails.gorm.rest.password"
+    public static final String SETTING_INTERCEPTORS = "grails.gorm.rest.interceptors"
+
     public static final String SETTING_ORDER_PARAMETER = "grails.gorm.rest.parameters.order"
     public static final String SETTING_SORT_PARAMETER = "grails.gorm.rest.parameters.sort"
     public static final String SETTING_MAX_PARAMETER = "grails.gorm.rest.parameters.max"
@@ -94,6 +97,7 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient<RxHttpClientBuilde
     final String maxParameter
     final String sortParameter
     final RxHttpClientBuilder rxHttpClientBuilder
+    final List<RequestInterceptor> interceptors = []
     protected final boolean allowBlockingOperations
 
     RxRestDatastoreClient(SocketAddress serverAddress, PropertyResolver configuration, RestClientMappingContext mappingContext) {
@@ -111,6 +115,9 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient<RxHttpClientBuilde
         def clientConfiguration = new DefaultConfiguration()
         clientConfiguration.setEncoding(charset.toString())
         this.rxHttpClientBuilder = new RxHttpClientBuilder(connectionProviderFactory, clientConfiguration)
+        interceptors.addAll(
+                ConfigurationUtils.findServices(configuration, SETTING_INTERCEPTORS, RequestInterceptor.class)
+        )
 
         this.orderParameter = configuration.getProperty(SETTING_ORDER_PARAMETER, String, DEFAULT_ORDER_PARAMETER)
         this.offsetParameter = configuration.getProperty(SETTING_OFFSET_PARAMETER, String, DEFAULT_OFFSET_PARAMETER)
@@ -193,6 +200,7 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient<RxHttpClientBuilde
 
     HttpClient<ByteBuf, ByteBuf> createHttpClient() {
         return HttpClient.newClient(connectionProviderFactory, defaultClientHost)
+
     }
 
 
@@ -216,9 +224,9 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient<RxHttpClientBuilde
                 Observable postObservable = httpClient.createPost(uri)
                 postObservable = postObservable.setHeader( HttpHeaderNames.CONTENT_TYPE, contentType )
                                                .setHeader( HttpHeaderNames.ACCEPT, contentType)
-                postObservable = prepareRequest(postObservable)
+                postObservable = prepareRequest(restEndpointPersistentEntity, postObservable, object)
                 postObservable.writeContent(
-                    createContentWriteObservable(codec, entityOp)
+                    createContentWriteObservable(restEndpointPersistentEntity, codec, entityOp)
                 )
                 postObservable = postObservable.map { HttpClientResponse response ->
                     return new ResponseAndEntity(uri, response, entity, object, codec)
@@ -244,9 +252,9 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient<RxHttpClientBuilde
                 Observable putObservable = httpClient.createPut(uri)
                 putObservable = putObservable.setHeader( HttpHeaderNames.CONTENT_TYPE, contentType )
                                              .setHeader( HttpHeaderNames.ACCEPT, contentType )
-                putObservable = prepareRequest(putObservable)
+                putObservable = prepareRequest(restEndpointPersistentEntity, putObservable, object)
                 putObservable.writeContent(
-                    createContentWriteObservable(codec, entityOp)
+                    createContentWriteObservable(restEndpointPersistentEntity, codec, entityOp)
                 )
                 putObservable = putObservable.map { HttpClientResponse response ->
                     return new ResponseAndEntity(uri, response, entity, object, codec)
@@ -402,11 +410,11 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient<RxHttpClientBuilde
         return rxHttpClientBuilder
     }
 
-    protected Observable<ByteBuf> createContentWriteObservable(Codec codec, BatchOperation.EntityOperation entityOp) {
+    protected Observable<ByteBuf> createContentWriteObservable(RestEndpointPersistentEntity restEndpointPersistentEntity, Codec codec, BatchOperation.EntityOperation entityOp) {
         Observable.create({ Subscriber<ByteBuf> subscriber ->
             ByteBuf byteBuf = Unpooled.buffer()
             try {
-                def writer = new OutputStreamWriter(new ByteBufOutputStream(byteBuf), charset)
+                def writer = new OutputStreamWriter(new ByteBufOutputStream(byteBuf), restEndpointPersistentEntity.charset)
                 def jsonWriter = new JsonWriter(writer)
                 codec.encode(jsonWriter, entityOp.object, BsonPersistentEntityCodec.DEFAULT_ENCODER_CONTEXT)
 
@@ -472,11 +480,18 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient<RxHttpClientBuilde
         return new RestClientMappingContext(configuration, classes)
     }
 
-    HttpClientRequest<ByteBuf, ByteBuf> prepareRequest(HttpClientRequest<ByteBuf, ByteBuf> httpClientRequest) {
+    HttpClientRequest<ByteBuf, ByteBuf> prepareRequest(RestEndpointPersistentEntity restEndpointPersistentEntity, HttpClientRequest<ByteBuf, ByteBuf> httpClientRequest, Object instance = null) {
         if (username != null && password != null) {
             String usernameAndPassword = "$username:$password"
             def encoded = Base64.encode(Unpooled.wrappedBuffer(usernameAndPassword.bytes)).toString(charset)
             httpClientRequest = httpClientRequest.addHeader HttpHeaderNames.AUTHORIZATION, "Basic $encoded".toString()
+        }
+
+        for(RequestInterceptor i in interceptors) {
+            httpClientRequest = i.intercept(restEndpointPersistentEntity, (RxEntity)instance, httpClientRequest)
+        }
+        for(RequestInterceptor i in restEndpointPersistentEntity.interceptors) {
+            httpClientRequest = i.intercept(restEndpointPersistentEntity, (RxEntity)instance, httpClientRequest)
         }
         return httpClientRequest
     }

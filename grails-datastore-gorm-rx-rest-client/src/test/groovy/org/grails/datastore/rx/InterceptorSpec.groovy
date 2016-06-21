@@ -1,0 +1,62 @@
+package org.grails.datastore.rx
+
+import grails.gorm.rx.RxEntity
+import grails.gorm.rx.rest.interceptor.RequestBuilderInterceptor
+import grails.http.MediaType
+import io.reactivex.netty.protocol.http.client.HttpClientRequest
+import org.grails.datastore.mapping.core.DatastoreUtils
+import org.grails.datastore.rx.domain.Intercepted
+import org.grails.datastore.rx.domain.Person
+import org.grails.datastore.rx.rest.RestEndpointPersistentEntity
+import org.grails.datastore.rx.rest.RxRestDatastoreClient
+import org.grails.datastore.rx.rest.test.TestRxRestDatastoreClient
+import rx.Observable
+
+/**
+ * Created by graemerocher on 21/06/16.
+ */
+class InterceptorSpec extends RxGormSpec {
+    @Override
+    List<Class> getDomainClasses() {
+        return [Intercepted]
+    }
+
+    void "Test interceptors are resolved and executed correctly for static methods"() {
+        given:"A canned response"
+        def mock = client.expect {
+            uri '/intercepted/1'
+            accept(MediaType.JSON)
+            header("Foo", "Bar")
+            header("One", "Two")
+        }
+        .respond {
+            json {
+                id 1
+                name "Fred"
+            }
+        }
+
+        when:"A get request is issued"
+        Observable<Intercepted> observable = Intercepted.get(1)
+        Intercepted p = observable.toBlocking().first()
+
+        then:"The result is correct"
+        mock.verify()
+        p.name == "Fred"
+    }
+
+    @Override
+    protected TestRxRestDatastoreClient createRestDatastoreClient(List<Class> classes) {
+        def config = [(RxRestDatastoreClient.SETTING_INTERCEPTORS):'org.grails.datastore.rx.TestInterceptor']
+        new TestRxRestDatastoreClient(DatastoreUtils.createPropertyResolver(config), classes as Class[])
+    }
+}
+
+class TestInterceptor extends RequestBuilderInterceptor {
+    @Override
+    Closure build(RestEndpointPersistentEntity entity, RxEntity instance, HttpClientRequest request) {
+        buildRequest {
+            header("Foo", "Bar")
+        }
+    }
+}
