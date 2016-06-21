@@ -225,6 +225,11 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient<RxHttpClientBuilde
                 postObservable = postObservable.setHeader( HttpHeaderNames.CONTENT_TYPE, contentType )
                                                .setHeader( HttpHeaderNames.ACCEPT, contentType)
                 postObservable = prepareRequest(restEndpointPersistentEntity, postObservable, object)
+
+                def interceptorArgument = operation.arguments.interceptor
+                if(interceptorArgument instanceof RequestInterceptor) {
+                    postObservable = ((RequestInterceptor)interceptorArgument).intercept(restEndpointPersistentEntity, (RxEntity)object, postObservable)
+                }
                 postObservable.writeContent(
                     createContentWriteObservable(restEndpointPersistentEntity, codec, entityOp)
                 )
@@ -253,6 +258,11 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient<RxHttpClientBuilde
                 putObservable = putObservable.setHeader( HttpHeaderNames.CONTENT_TYPE, contentType )
                                              .setHeader( HttpHeaderNames.ACCEPT, contentType )
                 putObservable = prepareRequest(restEndpointPersistentEntity, putObservable, object)
+                def interceptorArgument = operation.arguments.interceptor
+                if(interceptorArgument instanceof RequestInterceptor) {
+                    putObservable = ((RequestInterceptor)interceptorArgument).intercept(restEndpointPersistentEntity, (RxEntity)object, putObservable)
+                }
+
                 putObservable.writeContent(
                     createContentWriteObservable(restEndpointPersistentEntity, codec, entityOp)
                 )
