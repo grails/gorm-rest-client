@@ -29,6 +29,7 @@ class InterceptorSpec extends RxGormSpec {
             accept(MediaType.JSON)
             header("Foo", "Bar")
             header("One", "Two")
+            header("Three", "Four")
         }
         .respond {
             json {
@@ -38,7 +39,9 @@ class InterceptorSpec extends RxGormSpec {
         }
 
         when:"A get request is issued"
-        Observable<Intercepted> observable = Intercepted.get(1)
+        Observable<Intercepted> observable = Intercepted.get(1) {
+            header "Three", "Four"
+        }
         Intercepted p = observable.toBlocking().first()
 
         then:"The result is correct"

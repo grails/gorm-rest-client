@@ -1,6 +1,7 @@
 package org.grails.datastore.rx.rest.query
 
 import com.damnhandy.uri.template.UriTemplate
+import grails.gorm.rx.rest.interceptor.RequestInterceptor
 import grails.http.MediaType
 import grails.http.client.exceptions.HttpClientException
 import groovy.transform.CompileStatic
@@ -71,7 +72,7 @@ class SimpleRxRestQuery<T> extends Query implements RxQuery<T> {
     }
 
     @Override
-    Observable<T> findAll() {
+    Observable<T> findAll(Map<String,Object> queryArguments = Collections.emptyMap()) {
         HttpClient httpClient = datastoreClient.createHttpClient()
         CodecRegistry codecRegistry = new RestEntityCodecRegistry(datastoreClient.getCodecRegistry(), queryState, datastoreClient.mappingContext)
         Codec codec = codecRegistry.get(type)
@@ -88,6 +89,8 @@ class SimpleRxRestQuery<T> extends Query implements RxQuery<T> {
         String uri = uriTemplate.expand((Map<String,Object>)queryParameters)
         List variables = Arrays.asList(uriTemplate.getVariables())
         Collection<String> remaining = queryParameters.keySet().findAll() { String param -> !variables.contains(param)}
+
+        def restEndpointPersistentEntity = (RestEndpointPersistentEntity) entity
         if(!remaining.isEmpty()) {
             StringBuilder newUri = new StringBuilder(uri)
             def i = uri.indexOf(String.valueOf(QUESTION_MARK))
@@ -96,7 +99,7 @@ class SimpleRxRestQuery<T> extends Query implements RxQuery<T> {
                 newUri.append(QUESTION_MARK)
             }
 
-            def charset = ((RestEndpointPersistentEntity)entity).getCharset()
+            def charset = restEndpointPersistentEntity.getCharset()
             for(String param in remaining) {
 
                 def values = queryParameters.get(param)
@@ -119,7 +122,13 @@ class SimpleRxRestQuery<T> extends Query implements RxQuery<T> {
 
         HttpClientRequest httpClientRequest = httpClient.createGet(uri)
 
-        httpClientRequest = datastoreClient.prepareRequest((RestEndpointPersistentEntity)entity, httpClientRequest)
+        httpClientRequest = datastoreClient.prepareRequest(restEndpointPersistentEntity, httpClientRequest)
+
+
+        def interceptorArgument = queryArguments.interceptor
+        if(interceptorArgument instanceof RequestInterceptor) {
+            httpClientRequest = ((RequestInterceptor)interceptorArgument).intercept(restEndpointPersistentEntity, null, httpClientRequest)
+        }
         httpClientRequest = httpClientRequest.setHeader(HttpHeaderNames.ACCEPT, contentType.toString())
 
         httpClientRequest
@@ -307,9 +316,9 @@ class SimpleRxRestQuery<T> extends Query implements RxQuery<T> {
     }
 
     @Override
-    Observable<T> singleResult() {
+    Observable<T> singleResult(Map<String,Object> queryArguments = Collections.emptyMap()) {
         singleResult = true
-        return findAll().first()
+        return findAll(queryArguments).first()
     }
 
     @Override

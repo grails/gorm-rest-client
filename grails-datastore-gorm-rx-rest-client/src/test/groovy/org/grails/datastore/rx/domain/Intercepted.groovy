@@ -19,6 +19,7 @@ class Intercepted implements RxRestEntity<Intercepted> {
         interceptors MyInterceptor
     }
 }
+
 class MyInterceptor extends RequestBuilderInterceptor {
 
     @Override
