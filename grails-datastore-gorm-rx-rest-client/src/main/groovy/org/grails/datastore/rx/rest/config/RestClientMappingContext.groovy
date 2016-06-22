@@ -3,6 +3,8 @@ package org.grails.datastore.rx.rest.config
 import groovy.transform.CompileStatic
 import org.bson.codecs.BsonValueCodecProvider
 import org.bson.codecs.Codec
+import org.bson.codecs.DocumentCodecProvider
+import org.bson.codecs.ValueCodecProvider
 import org.bson.codecs.configuration.CodecProvider
 import org.bson.codecs.configuration.CodecRegistries
 import org.bson.codecs.configuration.CodecRegistry
@@ -43,7 +45,7 @@ class RestClientMappingContext extends AbstractMappingContext implements CodecPr
             configure(configuration)
         }
         addPersistentEntities(classes)
-        this.codecRegistry = CodecRegistries.fromProviders(new CodecExtensions(), this, new BsonValueCodecProvider())
+        this.codecRegistry = CodecRegistries.fromProviders(new CodecExtensions(), this, new BsonValueCodecProvider(), new ValueCodecProvider(), new DocumentCodecProvider())
     }
 
     @Override

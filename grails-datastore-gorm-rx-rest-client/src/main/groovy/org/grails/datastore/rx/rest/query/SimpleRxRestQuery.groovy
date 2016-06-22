@@ -87,8 +87,7 @@ class SimpleRxRestQuery<T> extends Query implements RxQuery<T> {
         }
 
         String uri = uriTemplate.expand((Map<String,Object>)queryParameters)
-        List variables = Arrays.asList(uriTemplate.getVariables())
-        Collection<String> remaining = queryParameters.keySet().findAll() { String param -> !variables.contains(param)}
+        Set<String> remaining = calculateRemainingParameters(queryParameters)
 
         def restEndpointPersistentEntity = (RestEndpointPersistentEntity) entity
         if(!remaining.isEmpty()) {
@@ -205,6 +204,7 @@ class SimpleRxRestQuery<T> extends Query implements RxQuery<T> {
                                 else {
                                     jsonReader.skipValue()
                                 }
+                                bsonType = jsonReader.readBsonType()
                             }
                         }
                         else {
@@ -223,7 +223,7 @@ class SimpleRxRestQuery<T> extends Query implements RxQuery<T> {
                     @Override
                     protected JsonReader next(JsonReader jsonReader, long requested, Observer<Observable<? extends T>> observer) {
 
-                        BsonType bsonType = jsonReader.readBsonType()
+                        BsonType bsonType = jsonReader.state.name() == BsonType.END_OF_DOCUMENT.name() ? BsonType.END_OF_DOCUMENT : jsonReader.readBsonType()
                         boolean endOfDocument = bsonType == BsonType.END_OF_DOCUMENT
                         try {
                             if(readCount < requested && !endOfDocument) {
@@ -257,6 +257,12 @@ class SimpleRxRestQuery<T> extends Query implements RxQuery<T> {
 
         }
 
+    }
+
+    protected Set<String> calculateRemainingParameters(LinkedMultiValueMap<String, Object> queryParameters) {
+        List variables = Arrays.asList(uriTemplate.getVariables())
+        Collection<String> remaining = queryParameters.keySet().findAll() { String param -> !variables.contains(param) }
+        return remaining as Set
     }
 
     protected LinkedMultiValueMap<String,Object> buildParameters() {
@@ -298,20 +304,24 @@ class SimpleRxRestQuery<T> extends Query implements RxQuery<T> {
                 }
             }
 
-            if (!singleResult) {
-                if (offset > 0) {
-                    queryParameters.add(datastoreClient.offsetParameter, offset)
-                }
-                if (max > -1) {
-                    queryParameters.add(datastoreClient.maxParameter, max)
-                }
-
-                for (Query.Order order in orderBy) {
-                    queryParameters.add(datastoreClient.sortParameter, order.property)
-                    queryParameters.add(datastoreClient.orderParameter, order.direction.name().toLowerCase())
-                }
-            }
+            buildPaginationParameters(queryParameters)
             return queryParameters
+        }
+    }
+
+    protected void buildPaginationParameters(LinkedMultiValueMap<String, Object> queryParameters) {
+        if (!singleResult) {
+            if (offset > 0) {
+                queryParameters.add(datastoreClient.offsetParameter, offset)
+            }
+            if (max > -1) {
+                queryParameters.add(datastoreClient.maxParameter, max)
+            }
+
+            for (Query.Order order in orderBy) {
+                queryParameters.add(datastoreClient.sortParameter, order.property)
+                queryParameters.add(datastoreClient.orderParameter, order.direction.name().toLowerCase())
+            }
         }
     }
 

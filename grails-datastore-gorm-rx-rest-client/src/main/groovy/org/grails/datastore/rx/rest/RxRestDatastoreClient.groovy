@@ -44,6 +44,7 @@ import org.grails.datastore.rx.query.QueryState
 import org.grails.datastore.rx.rest.api.RxRestGormStaticApi
 import org.grails.datastore.rx.rest.codecs.ContextAwareCodec
 import org.grails.datastore.rx.rest.config.RestClientMappingContext
+import org.grails.datastore.rx.rest.query.BsonRxRestQuery
 import org.grails.datastore.rx.rest.query.SimpleRxRestQuery
 import org.grails.gorm.rx.api.RxGormEnhancer
 import org.grails.gorm.rx.api.RxGormStaticApi
@@ -73,10 +74,11 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient<RxHttpClientBuilde
     public static final String SETTING_USERNAME = "grails.gorm.rest.username"
     public static final String SETTING_PASSWORD = "grails.gorm.rest.password"
     public static final String SETTING_INTERCEPTORS = "grails.gorm.rest.interceptors"
-
+    public static final String SETTING_QUERY_TYPE = "grails.gorm.rest.query.type"
     public static final String SETTING_ORDER_PARAMETER = "grails.gorm.rest.parameters.order"
     public static final String SETTING_SORT_PARAMETER = "grails.gorm.rest.parameters.sort"
     public static final String SETTING_MAX_PARAMETER = "grails.gorm.rest.parameters.max"
+    public static final String SETTING_QUERY_PARAMETER = "grails.gorm.rest.parameters.query"
     public static final String SETTING_OFFSET_PARAMETER = "grails.gorm.rest.parameters.offset"
 
 
@@ -84,6 +86,7 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient<RxHttpClientBuilde
     public static final String DEFAULT_OFFSET_PARAMETER = "offset"
     public static final String DEFAULT_SORT_PARAMETER = "sort"
     public static final String DEFAULT_MAX_PARAMETER = "max"
+    public static final String DEFAULT_QUERY_PARAMETER = "q"
 
 
     final ConnectionProviderFactory connectionProviderFactory
@@ -93,12 +96,16 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient<RxHttpClientBuilde
     final String password
     final Charset charset
     final String orderParameter
+    final String queryParameter
     final String offsetParameter
     final String maxParameter
     final String sortParameter
+    final Set<String> defaultParameterNames
     final RxHttpClientBuilder rxHttpClientBuilder
     final List<RequestInterceptor> interceptors = []
+    final Class<? extends SimpleRxRestQuery> queryType
     protected final boolean allowBlockingOperations
+
 
     RxRestDatastoreClient(SocketAddress serverAddress, PropertyResolver configuration, RestClientMappingContext mappingContext) {
         super(mappingContext)
@@ -108,6 +115,7 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient<RxHttpClientBuilde
         this.username = configuration.getProperty(SETTING_USERNAME, String, null)
         this.password = configuration.getProperty(SETTING_PASSWORD, String, null)
         this.charset = Charset.forName( configuration.getProperty(SETTING_CHARSET, "UTF-8"))
+        this.queryType = (configuration.getProperty(SETTING_QUERY_TYPE, String, "simple") == "bson") ? BsonRxRestQuery : SimpleRxRestQuery
         def pool = new PoolConfig()
         // TODO: populate pool configuration
         connectionProviderFactory = SingleHostPoolingProviderFactory.create(pool)
@@ -123,6 +131,14 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient<RxHttpClientBuilde
         this.offsetParameter = configuration.getProperty(SETTING_OFFSET_PARAMETER, String, DEFAULT_OFFSET_PARAMETER)
         this.sortParameter = configuration.getProperty(SETTING_SORT_PARAMETER, String, DEFAULT_SORT_PARAMETER)
         this.maxParameter = configuration.getProperty(SETTING_MAX_PARAMETER, String, DEFAULT_MAX_PARAMETER)
+        this.queryParameter = configuration.getProperty(SETTING_QUERY_PARAMETER, String, DEFAULT_QUERY_PARAMETER)
+        this.defaultParameterNames = new HashSet<>()
+        defaultParameterNames.add(sortParameter)
+        defaultParameterNames.add(maxParameter)
+        defaultParameterNames.add(offsetParameter)
+        defaultParameterNames.add(orderParameter)
+        defaultParameterNames.add(queryParameter)
+
         initialize(mappingContext)
     }
 
@@ -402,7 +418,7 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient<RxHttpClientBuilde
 
     @Override
     Query createEntityQuery(PersistentEntity entity, QueryState queryState) {
-        return new SimpleRxRestQuery(this, entity, queryState)
+        return queryType.newInstance(this, entity, queryState)
     }
 
 
@@ -412,7 +428,7 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient<RxHttpClientBuilde
             throw new IllegalArgumentException("Type [$type.name] is not a persistent type")
         }
 
-        return new SimpleRxRestQuery(this, entity, uriTemplate, queryState)
+        return queryType.newInstance(this, entity, uriTemplate, queryState)
     }
 
     @Override
