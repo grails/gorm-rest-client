@@ -187,4 +187,74 @@ class ToOneSpec extends RxGormSpec {
         mock.verify()
         p.name == "Rooney"
     }
+
+    void "Test that reading a mapped regular to one association that is returned via HAL _embedded doesn't return a proxy"() {
+        given:"A canned response"
+        def mock = client.expect {
+            uri '/club/1'
+            accept(MediaType.HAL_JSON)
+        }
+        .respond {
+            json {
+                _embedded {
+                    captain {
+                        id 1L
+                        name "Rooney"
+                    }
+                    owner {
+                        id 2L
+                        name "Glazer"
+                    }
+                }
+                id 1
+                name "Manchester United"
+            }
+        }
+
+        when:"A get request is issued"
+        Observable<Club> observable = Club.get(1)
+        Club c = observable.toBlocking().first()
+
+        then:"The result is correct"
+        mock.verify()
+        c.name == "Manchester United"
+        !(c.captain instanceof ObservableProxy)
+        c.captain.name == "Rooney"
+        !(c.owner instanceof ObservableProxy)
+        c.owner.name == "Glazer"
+    }
+
+    void "Test that reading a mapped regular to one association that is returned directly within the JSON body doesn't return a proxy"() {
+        given:"A canned response"
+        def mock = client.expect {
+            uri '/club/1'
+            accept(MediaType.HAL_JSON)
+        }
+        .respond {
+            json {
+                id 1
+                name "Manchester United"
+                captain {
+                    id 1L
+                    name "Rooney"
+                }
+                owner {
+                    id 2L
+                    name "Glazer"
+                }
+            }
+        }
+
+        when:"A get request is issued"
+        Observable<Club> observable = Club.get(1)
+        Club c = observable.toBlocking().first()
+
+        then:"The result is correct"
+        mock.verify()
+        c.name == "Manchester United"
+        !(c.captain instanceof ObservableProxy)
+        c.captain.name == "Rooney"
+        !(c.owner instanceof ObservableProxy)
+        c.owner.name == "Glazer"
+    }
 }
