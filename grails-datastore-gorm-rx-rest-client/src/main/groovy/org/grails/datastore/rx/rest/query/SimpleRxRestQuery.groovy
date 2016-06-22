@@ -74,7 +74,7 @@ class SimpleRxRestQuery<T> extends Query implements RxQuery<T> {
 
     @Override
     Observable<T> findAll(Map<String,Object> queryArguments = Collections.emptyMap()) {
-        HttpClient httpClient = datastoreClient.createHttpClient()
+        HttpClient httpClient = datastoreClient.createHttpClient(queryArguments)
         CodecRegistry codecRegistry = new RestEntityCodecRegistry(datastoreClient.getCodecRegistry(), queryState, datastoreClient.mappingContext)
         Codec codec = codecRegistry.get(type)
 

@@ -17,6 +17,7 @@ import io.netty.buffer.Unpooled
 import io.netty.handler.codec.base64.Base64
 import io.netty.handler.codec.http.HttpHeaderNames
 import io.netty.handler.codec.http.HttpResponseStatus
+import io.netty.handler.logging.LogLevel
 import io.reactivex.netty.client.ConnectionProviderFactory
 import io.reactivex.netty.client.Host
 import io.reactivex.netty.client.pool.PoolConfig
@@ -58,6 +59,8 @@ import rx.functions.Func2
 
 import java.nio.charset.Charset
 import java.text.SimpleDateFormat
+import java.util.concurrent.TimeUnit
+
 /**
  * An RxGORM implementation that backs onto a backend REST server
  *
@@ -68,19 +71,21 @@ import java.text.SimpleDateFormat
 @Slf4j
 class RxRestDatastoreClient extends AbstractRxDatastoreClient<RxHttpClientBuilder> implements CodecsRxDatastoreClient<RxHttpClientBuilder> {
 
-    public static final String SETTING_HOST = "grails.gorm.rest.host"
-    public static final String SETTING_PORT = "grails.gorm.rest.port"
-    public static final String SETTING_CHARSET = "grails.gorm.rest.charset"
-    public static final String SETTING_POOL_OPTIONS = "grails.gorm.rest.pool.options"
-    public static final String SETTING_USERNAME = "grails.gorm.rest.username"
-    public static final String SETTING_PASSWORD = "grails.gorm.rest.password"
-    public static final String SETTING_INTERCEPTORS = "grails.gorm.rest.interceptors"
-    public static final String SETTING_QUERY_TYPE = "grails.gorm.rest.query.type"
-    public static final String SETTING_ORDER_PARAMETER = "grails.gorm.rest.parameters.order"
+    public static final String SETTING_HOST             = "grails.gorm.rest.host"
+    public static final String SETTING_PORT             = "grails.gorm.rest.port"
+    public static final String SETTING_CHARSET          = "grails.gorm.rest.charset"
+    public static final String SETTING_READ_TIMEOUT     = "grails.gorm.rest.readTimeout"
+    public static final String SETTING_LOG_LEVEL        = "grails.gorm.rest.logLevel"
+    public static final String SETTING_POOL_OPTIONS     = "grails.gorm.rest.pool.options"
+    public static final String SETTING_USERNAME         = "grails.gorm.rest.username"
+    public static final String SETTING_PASSWORD         = "grails.gorm.rest.password"
+    public static final String SETTING_INTERCEPTORS     = "grails.gorm.rest.interceptors"
+    public static final String SETTING_QUERY_TYPE       = "grails.gorm.rest.query.type"
+    public static final String SETTING_ORDER_PARAMETER  = "grails.gorm.rest.parameters.order"
     public static final String SETTING_EXPAND_PARAMETER = "grails.gorm.rest.parameters.expand"
-    public static final String SETTING_SORT_PARAMETER = "grails.gorm.rest.parameters.sort"
-    public static final String SETTING_MAX_PARAMETER = "grails.gorm.rest.parameters.max"
-    public static final String SETTING_QUERY_PARAMETER = "grails.gorm.rest.parameters.query"
+    public static final String SETTING_SORT_PARAMETER   = "grails.gorm.rest.parameters.sort"
+    public static final String SETTING_MAX_PARAMETER    = "grails.gorm.rest.parameters.max"
+    public static final String SETTING_QUERY_PARAMETER  = "grails.gorm.rest.parameters.query"
     public static final String SETTING_OFFSET_PARAMETER = "grails.gorm.rest.parameters.offset"
 
 
@@ -90,24 +95,98 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient<RxHttpClientBuilde
     public static final String DEFAULT_MAX_PARAMETER = "max"
     public static final String DEFAULT_EXPAND_PARAMETER = "expand"
     public static final String DEFAULT_QUERY_PARAMETER = "q"
+    public static final String ARGUMENT_READ_TIMEOUT = "readTimeout"
+    public static final String ARGUMENT_LOG_LEVEL = "logLevel"
 
-
+    /**
+     * The {@link ConnectionProviderFactory} to use to create connections
+     */
     final ConnectionProviderFactory connectionProviderFactory
+
+    /**
+     * The default read timeout
+     */
+    final int readTimeout
+
+    /**
+     * The default log level
+     */
+    final LogLevel logLevel
+    /**
+     * The default client host to connect to
+     */
     final Observable<Host> defaultClientHost
+
+    /**
+     * The {@link CodecRegistry}
+     */
     final CodecRegistry codecRegistry
+
+    /**
+     * The username to use for BASIC auth
+     */
     final String username
+
+    /**
+     * The password to use for BASIC auth
+     */
     final String password
+
+    /**
+     * The encoding to use
+     */
     final Charset charset
+
+    /**
+     * The name of the order parameter to use
+     */
     final String orderParameter
+
+    /**
+     * The name of the query parameter to use
+     */
     final String queryParameter
+
+    /**
+     * The name of the offset parameter to use
+     */
     final String offsetParameter
+
+    /**
+     * The name of the max parameter to use
+     */
     final String maxParameter
+
+    /**
+     * The name of the sort parameter to use
+     */
     final String sortParameter
+
+    /**
+     * The name of the expand parameter to use
+     */
     final String expandParameter
+
+    /**
+     * The default allowable set of parameter names
+     */
     final Set<String> defaultParameterNames
+
+    /**
+     * A low level client for non entity related operations
+     */
     final RxHttpClientBuilder rxHttpClientBuilder
+
+    /**
+     * The interceptors to use
+     */
     final List<RequestInterceptor> interceptors = []
+
+    /**
+     * The query type to use
+     */
     final Class<? extends SimpleRxRestQuery> queryType
+
     protected final boolean allowBlockingOperations
 
 
@@ -120,7 +199,8 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient<RxHttpClientBuilde
         this.password = configuration.getProperty(SETTING_PASSWORD, String, null)
         this.charset = Charset.forName( configuration.getProperty(SETTING_CHARSET, "UTF-8"))
         this.queryType = (configuration.getProperty(SETTING_QUERY_TYPE, String, "simple") == "bson") ? BsonRxRestQuery : SimpleRxRestQuery
-
+        this.readTimeout = configuration.getProperty(SETTING_READ_TIMEOUT, Integer, -1)
+        this.logLevel = configuration.getProperty(SETTING_LOG_LEVEL, LogLevel, null)
         PoolConfigBuilder poolConfigBuilder = new PoolConfigBuilder(configuration)
         PoolConfig pool = poolConfigBuilder.build()
 
@@ -186,7 +266,7 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient<RxHttpClientBuilde
 
     @Override
     Observable<Number> batchDelete(BatchOperation operation) {
-        HttpClient httpClient = createHttpClient()
+        HttpClient httpClient = createHttpClient(operation.arguments)
         List<HttpClientRequest> observables = []
 
         for (PersistentEntity entity in operation.deletes.keySet()) {
@@ -223,15 +303,29 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient<RxHttpClientBuilde
         }
     }
 
-    HttpClient<ByteBuf, ByteBuf> createHttpClient() {
-        return HttpClient.newClient(connectionProviderFactory, defaultClientHost)
+    HttpClient<ByteBuf, ByteBuf> createHttpClient(Map<String,Object> arguments) {
+        HttpClient httpClient = HttpClient.newClient(connectionProviderFactory, defaultClientHost)
+        if(arguments?.containsKey(ARGUMENT_READ_TIMEOUT)) {
+            httpClient = httpClient.readTimeOut(arguments.get(ARGUMENT_READ_TIMEOUT) as Integer, TimeUnit.MILLISECONDS)
+        }
+        else if(readTimeout > -1) {
+            httpClient = httpClient.readTimeOut(readTimeout, TimeUnit.MILLISECONDS)
+        }
+
+        if(arguments?.containsKey(ARGUMENT_LOG_LEVEL)) {
+            httpClient = httpClient.enableWireLogging(arguments.get(ARGUMENT_LOG_LEVEL) as LogLevel)
+        }
+        else if(logLevel != null) {
+            httpClient = httpClient.enableWireLogging(logLevel)
+        }
+        return httpClient
 
     }
 
 
     @Override
     Observable<Number> batchWrite(BatchOperation operation) {
-        HttpClient httpClient = createHttpClient()
+        HttpClient httpClient = createHttpClient(operation.arguments)
         List<Observable> observables = []
 
         for(PersistentEntity entity in operation.inserts.keySet()) {

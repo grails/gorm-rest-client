@@ -12,7 +12,7 @@ import rx.Observable
 import java.nio.charset.Charset
 
 /**
- * A builder for populating {@link HttpServerResponse} objects, useful only in testing scenarios
+ * A builder for populating {@link HttpServerResponse} objects, useful only in testing scenarios. DO NOT use production.
  *
  * @author Graeme Rocher
  * @since 6.0
@@ -155,7 +155,7 @@ class HttpServerResponseBuilder {
         defaultJsonContentType()
         StreamingJsonBuilder builder = new StreamingJsonBuilder(str)
         builder.call(callable)
-        response.writeStringAndFlushOnEach(Observable.just(str.toString())).toBlocking().first()
+        response.writeStringAndFlushOnEach(Observable.just(str.toString())).defaultIfEmpty(null).toBlocking().first()
         return this
     }
 
@@ -169,7 +169,7 @@ class HttpServerResponseBuilder {
         defaultJsonContentType()
         StreamingJsonBuilder builder = new StreamingJsonBuilder(str)
         builder.call(array)
-        response.writeStringAndFlushOnEach(Observable.just(str.toString())).toBlocking().first()
+        response.writeStringAndFlushOnEach(Observable.just(str.toString())).defaultIfEmpty(null).toBlocking().first()
         return this
     }
 
@@ -183,7 +183,7 @@ class HttpServerResponseBuilder {
         defaultJsonContentType()
         StreamingJsonBuilder builder = new StreamingJsonBuilder(str)
         builder.call(json)
-        response.writeStringAndFlushOnEach(Observable.just(str.toString())).toBlocking().first()
+        response.writeStringAndFlushOnEach(Observable.just(str.toString())).defaultIfEmpty(null).toBlocking().first()
         return this
     }
 
@@ -194,7 +194,7 @@ class HttpServerResponseBuilder {
      */
     HttpServerResponseBuilder json(String json) {
         defaultJsonContentType()
-        response.writeStringAndFlushOnEach(Observable.just(json)).toBlocking().first()
+        response.writeStringAndFlushOnEach(Observable.just(json)).defaultIfEmpty(null).toBlocking().first()
         return (HttpServerResponseBuilder)this
     }
 
@@ -206,7 +206,7 @@ class HttpServerResponseBuilder {
      */
     HttpServerResponseBuilder xml(String xml) {
         response.setHeader(HttpHeaderNames.CONTENT_TYPE, "application/xml")
-        response.writeStringAndFlushOnEach(Observable.just(xml)).toBlocking().first()
+        response.writeStringAndFlushOnEach(Observable.just(xml)).defaultIfEmpty(null).toBlocking().first()
         return this
     }
 
@@ -223,7 +223,7 @@ class HttpServerResponseBuilder {
         Writable markup = (Writable)b.bind(closure)
         markup.writeTo(writer)
         writer.flush()
-        response.writeStringAndFlushOnEach(Observable.just(writer.toString())).toBlocking().first()
+        response.writeStringAndFlushOnEach(Observable.just(writer.toString())).defaultIfEmpty(null).toBlocking().first()
         return this
     }
 
@@ -238,7 +238,7 @@ class HttpServerResponseBuilder {
         StringWriter writer = new StringWriter()
         xml.writeTo(writer)
         writer.flush()
-        response.writeStringAndFlushOnEach(Observable.just(writer.toString())).toBlocking().first()
+        response.writeStringAndFlushOnEach(Observable.just(writer.toString())).defaultIfEmpty(null).toBlocking().first()
         return this
     }
 

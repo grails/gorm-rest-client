@@ -18,7 +18,8 @@ class BsonQuerySpec extends RxGormSpec {
 
     @Override
     protected TestRxRestDatastoreClient createRestDatastoreClient(List<Class> classes) {
-        def config = [(RxRestDatastoreClient.SETTING_QUERY_TYPE):"bson"]
+        def config = [(RxRestDatastoreClient.SETTING_QUERY_TYPE):"bson",
+                      (RxRestDatastoreClient.SETTING_LOG_LEVEL):"TRACE"]
         new TestRxRestDatastoreClient(DatastoreUtils.createPropertyResolver(config), classes as Class[])
     }
 

@@ -57,7 +57,7 @@ class HttpTestServer implements Closeable {
                         throw e
                     }
                 }
-                return builder.response.flushOnlyOnReadComplete()
+                return Observable.empty()
             }
         });
         return server.getServerAddress();

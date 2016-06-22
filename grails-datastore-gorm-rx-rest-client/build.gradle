@@ -6,4 +6,6 @@ dependencies {
 
     compile project(":grails-http-core")
     compile project(":grails-rx-http-client")
+
+    testRuntime "org.slf4j:slf4j-simple:1.7.11"
 }
