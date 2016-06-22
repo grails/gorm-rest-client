@@ -21,7 +21,6 @@ class Intercepted implements RxRestEntity<Intercepted> {
 }
 
 class MyInterceptor extends RequestBuilderInterceptor {
-
     @Override
     Closure build(RestEndpointPersistentEntity entity, RxEntity instance, HttpClientRequest request) {
         buildRequest {

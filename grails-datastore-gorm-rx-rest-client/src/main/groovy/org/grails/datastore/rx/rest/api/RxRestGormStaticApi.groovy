@@ -1,5 +1,7 @@
 package org.grails.datastore.rx.rest.api
 
+import grails.gorm.rx.DetachedCriteria
+import grails.gorm.rx.rest.RestDetachedCriteria
 import groovy.transform.CompileStatic
 import groovy.transform.InheritConstructors
 import org.grails.gorm.rx.api.RxGormStaticApi
@@ -16,8 +18,18 @@ import rx.Observable
 @InheritConstructors
 class RxRestGormStaticApi<D> extends RxGormStaticApi<D> {
 
-//    @Override
-//    Observable<D> get(Serializable id, Map<String, Object> args) {
-//        return datastoreClient.get(persistentClass, id)
-//    }
+    @Override
+    RestDetachedCriteria<D> where(Closure callable) {
+        new RestDetachedCriteria<D>(persistentClass).build(callable)
+    }
+
+    @Override
+    RestDetachedCriteria<D> whereLazy(Closure callable) {
+        new RestDetachedCriteria<D>(persistentClass).buildLazy(callable)
+    }
+
+    @Override
+    RestDetachedCriteria<D> whereAny(Closure callable) {
+        (RestDetachedCriteria<D>)new RestDetachedCriteria<D>(persistentClass).or(callable)
+    }
 }

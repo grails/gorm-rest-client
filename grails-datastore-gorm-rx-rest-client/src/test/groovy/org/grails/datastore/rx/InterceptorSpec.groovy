@@ -1,6 +1,7 @@
 package org.grails.datastore.rx
 
 import grails.gorm.rx.RxEntity
+import grails.gorm.rx.rest.RestDetachedCriteria
 import grails.gorm.rx.rest.interceptor.RequestBuilderInterceptor
 import grails.http.HttpMethod
 import grails.http.MediaType
@@ -20,6 +21,35 @@ class InterceptorSpec extends RxGormSpec {
     @Override
     List<Class> getDomainClasses() {
         return [Intercepted]
+    }
+
+    void "Test interceptors are resolved and executed correctly for detached criteria"() {
+        given:"A canned response"
+        def mock = client.expect {
+            uri '/intercepted?name=Fred'
+            accept(MediaType.JSON)
+            header("Foo", "Bar")
+            header("One", "Two")
+            header("Three", "Four")
+        }
+        .respond {
+            json {
+                id 1
+                name "Fred"
+            }
+        }
+
+        when:"A get request is issued"
+        RestDetachedCriteria<Intercepted> criteria = Intercepted.where {
+            name == "Fred"
+        }
+        Intercepted p = criteria.get {
+            header "Three", "Four"
+        }.toBlocking().first()
+
+        then:"The result is correct"
+        mock.verify()
+        p.name == "Fred"
     }
 
     void "Test interceptors are resolved and executed correctly for static methods"() {
