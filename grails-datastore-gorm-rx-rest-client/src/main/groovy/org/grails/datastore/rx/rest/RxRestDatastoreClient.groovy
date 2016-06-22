@@ -43,6 +43,7 @@ import org.grails.datastore.rx.bson.CodecsRxDatastoreClient
 import org.grails.datastore.rx.query.QueryState
 import org.grails.datastore.rx.rest.api.RxRestGormStaticApi
 import org.grails.datastore.rx.rest.codecs.ContextAwareCodec
+import org.grails.datastore.rx.rest.config.PoolConfigBuilder
 import org.grails.datastore.rx.rest.config.RestClientMappingContext
 import org.grails.datastore.rx.rest.query.BsonRxRestQuery
 import org.grails.datastore.rx.rest.query.SimpleRxRestQuery
@@ -119,9 +120,12 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient<RxHttpClientBuilde
         this.password = configuration.getProperty(SETTING_PASSWORD, String, null)
         this.charset = Charset.forName( configuration.getProperty(SETTING_CHARSET, "UTF-8"))
         this.queryType = (configuration.getProperty(SETTING_QUERY_TYPE, String, "simple") == "bson") ? BsonRxRestQuery : SimpleRxRestQuery
-        def pool = new PoolConfig()
-        // TODO: populate pool configuration
-        connectionProviderFactory = SingleHostPoolingProviderFactory.create(pool)
+
+        PoolConfigBuilder poolConfigBuilder = new PoolConfigBuilder(configuration)
+        PoolConfig pool = poolConfigBuilder.build()
+
+        // TODO: support client side loading balancing
+        this.connectionProviderFactory = SingleHostPoolingProviderFactory.create(pool)
         this.codecRegistry = mappingContext.codecRegistry
         def clientConfiguration = new DefaultConfiguration()
         clientConfiguration.setEncoding(charset.toString())
