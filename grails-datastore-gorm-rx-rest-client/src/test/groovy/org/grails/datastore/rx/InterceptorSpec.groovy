@@ -8,9 +8,8 @@ import grails.http.MediaType
 import io.reactivex.netty.protocol.http.client.HttpClientRequest
 import org.grails.datastore.mapping.core.DatastoreUtils
 import org.grails.datastore.rx.domain.Intercepted
-import org.grails.datastore.rx.domain.Person
 import org.grails.datastore.rx.rest.RestEndpointPersistentEntity
-import org.grails.datastore.rx.rest.RxRestDatastoreClient
+import org.grails.datastore.rx.rest.config.Settings
 import org.grails.datastore.rx.rest.test.TestRxRestDatastoreClient
 import rx.Observable
 
@@ -114,7 +113,7 @@ class InterceptorSpec extends RxGormSpec {
 
     @Override
     protected TestRxRestDatastoreClient createRestDatastoreClient(List<Class> classes) {
-        def config = [(RxRestDatastoreClient.SETTING_INTERCEPTORS):'org.grails.datastore.rx.TestInterceptor']
+        def config = [(Settings.SETTING_INTERCEPTORS):'org.grails.datastore.rx.TestInterceptor']
         new TestRxRestDatastoreClient(DatastoreUtils.createPropertyResolver(config), classes as Class[])
     }
 }

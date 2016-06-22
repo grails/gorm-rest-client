@@ -46,6 +46,7 @@ import org.grails.datastore.rx.rest.api.RxRestGormStaticApi
 import org.grails.datastore.rx.rest.codecs.ContextAwareCodec
 import org.grails.datastore.rx.rest.config.PoolConfigBuilder
 import org.grails.datastore.rx.rest.config.RestClientMappingContext
+import org.grails.datastore.rx.rest.config.Settings
 import org.grails.datastore.rx.rest.query.BsonRxRestQuery
 import org.grails.datastore.rx.rest.query.SimpleRxRestQuery
 import org.grails.gorm.rx.api.RxGormEnhancer
@@ -69,34 +70,7 @@ import java.util.concurrent.TimeUnit
  */
 @CompileStatic
 @Slf4j
-class RxRestDatastoreClient extends AbstractRxDatastoreClient<RxHttpClientBuilder> implements CodecsRxDatastoreClient<RxHttpClientBuilder> {
-
-    public static final String SETTING_HOST             = "grails.gorm.rest.host"
-    public static final String SETTING_PORT             = "grails.gorm.rest.port"
-    public static final String SETTING_CHARSET          = "grails.gorm.rest.charset"
-    public static final String SETTING_READ_TIMEOUT     = "grails.gorm.rest.readTimeout"
-    public static final String SETTING_LOG_LEVEL        = "grails.gorm.rest.logLevel"
-    public static final String SETTING_POOL_OPTIONS     = "grails.gorm.rest.pool.options"
-    public static final String SETTING_USERNAME         = "grails.gorm.rest.username"
-    public static final String SETTING_PASSWORD         = "grails.gorm.rest.password"
-    public static final String SETTING_INTERCEPTORS     = "grails.gorm.rest.interceptors"
-    public static final String SETTING_QUERY_TYPE       = "grails.gorm.rest.query.type"
-    public static final String SETTING_ORDER_PARAMETER  = "grails.gorm.rest.parameters.order"
-    public static final String SETTING_EXPAND_PARAMETER = "grails.gorm.rest.parameters.expand"
-    public static final String SETTING_SORT_PARAMETER   = "grails.gorm.rest.parameters.sort"
-    public static final String SETTING_MAX_PARAMETER    = "grails.gorm.rest.parameters.max"
-    public static final String SETTING_QUERY_PARAMETER  = "grails.gorm.rest.parameters.query"
-    public static final String SETTING_OFFSET_PARAMETER = "grails.gorm.rest.parameters.offset"
-
-
-    public static final String DEFAULT_ORDER_PARAMETER = "order"
-    public static final String DEFAULT_OFFSET_PARAMETER = "offset"
-    public static final String DEFAULT_SORT_PARAMETER = "sort"
-    public static final String DEFAULT_MAX_PARAMETER = "max"
-    public static final String DEFAULT_EXPAND_PARAMETER = "expand"
-    public static final String DEFAULT_QUERY_PARAMETER = "q"
-    public static final String ARGUMENT_READ_TIMEOUT = "readTimeout"
-    public static final String ARGUMENT_LOG_LEVEL = "logLevel"
+class RxRestDatastoreClient extends AbstractRxDatastoreClient<RxHttpClientBuilder> implements CodecsRxDatastoreClient<RxHttpClientBuilder>, Settings {
 
     /**
      * The {@link ConnectionProviderFactory} to use to create connections

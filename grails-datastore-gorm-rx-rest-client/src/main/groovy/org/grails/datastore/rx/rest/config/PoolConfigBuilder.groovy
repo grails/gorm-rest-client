@@ -3,7 +3,6 @@ package org.grails.datastore.rx.rest.config
 import groovy.transform.CompileStatic
 import io.reactivex.netty.client.pool.PoolConfig
 import org.grails.datastore.mapping.config.DatastoreConfigurationBuilder
-import org.grails.datastore.rx.rest.RxRestDatastoreClient
 import org.springframework.core.env.PropertyResolver
 
 /**
@@ -15,7 +14,7 @@ import org.springframework.core.env.PropertyResolver
 @CompileStatic
 class PoolConfigBuilder extends DatastoreConfigurationBuilder<PoolConfig, PoolConfig> {
     PoolConfigBuilder(PropertyResolver propertyResolver) {
-        super(propertyResolver, RxRestDatastoreClient.SETTING_POOL_OPTIONS)
+        super(propertyResolver, Settings.SETTING_POOL_OPTIONS)
     }
 
     @Override

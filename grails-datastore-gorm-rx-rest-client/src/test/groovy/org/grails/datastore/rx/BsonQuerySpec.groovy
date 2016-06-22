@@ -2,7 +2,7 @@ package org.grails.datastore.rx
 
 import org.grails.datastore.mapping.core.DatastoreUtils
 import org.grails.datastore.rx.domain.Person
-import org.grails.datastore.rx.rest.RxRestDatastoreClient
+import org.grails.datastore.rx.rest.config.Settings
 import org.grails.datastore.rx.rest.test.TestRxRestDatastoreClient
 import rx.Observable
 
@@ -18,8 +18,8 @@ class BsonQuerySpec extends RxGormSpec {
 
     @Override
     protected TestRxRestDatastoreClient createRestDatastoreClient(List<Class> classes) {
-        def config = [(RxRestDatastoreClient.SETTING_QUERY_TYPE):"bson",
-                      (RxRestDatastoreClient.SETTING_LOG_LEVEL):"TRACE"]
+        def config = [(Settings.SETTING_QUERY_TYPE):"bson",
+                      (Settings.SETTING_LOG_LEVEL) :"TRACE"]
         new TestRxRestDatastoreClient(DatastoreUtils.createPropertyResolver(config), classes as Class[])
     }
 
