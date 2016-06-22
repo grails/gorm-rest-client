@@ -44,8 +44,8 @@ class BsonRxRestQuery<T> extends SimpleRxRestQuery<T> {
     }
 
     @Override
-    protected LinkedMultiValueMap<String, Object> buildParameters() {
-        LinkedMultiValueMap<String, Object> queryParameters = super.buildParameters()
+    protected LinkedMultiValueMap<String, Object> buildParameters(Map<String,Object> queryArguments) {
+        LinkedMultiValueMap<String, Object> queryParameters = super.buildParameters(queryArguments)
 
         CodecRegistry registry = datastoreClient.codecRegistry
         Query.Junction junction = criteria

@@ -29,6 +29,7 @@ import org.grails.datastore.rx.query.RxQueryUtils
 import org.grails.datastore.rx.rest.RxRestDatastoreClient
 import org.grails.datastore.rx.rest.codecs.RestEntityCodecRegistry
 import org.grails.datastore.rx.rest.RestEndpointPersistentEntity
+import org.grails.datastore.rx.rest.json.HalConstants
 import org.springframework.util.LinkedMultiValueMap
 import rx.Observable
 import rx.Observer
@@ -47,7 +48,7 @@ class SimpleRxRestQuery<T> extends Query implements RxQuery<T> {
     protected static final char AMPERSAND = '&'
     protected static final char EQUALS = '='
     protected static final char QUESTION_MARK = '?'
-    protected static final String _EMBEDDED = "_embedded"
+    protected static final String EXPAND_ARGUMENT = "expand"
 
     final RxRestDatastoreClient datastoreClient
     final QueryState queryState
@@ -77,7 +78,7 @@ class SimpleRxRestQuery<T> extends Query implements RxQuery<T> {
         CodecRegistry codecRegistry = new RestEntityCodecRegistry(datastoreClient.getCodecRegistry(), queryState, datastoreClient.mappingContext)
         Codec codec = codecRegistry.get(type)
 
-        LinkedMultiValueMap<String,Object> queryParameters = buildParameters()
+        LinkedMultiValueMap<String,Object> queryParameters = buildParameters(queryArguments)
 
         if(id != null) {
             T loadedEntity = queryState.getLoadedEntity(type, id)
@@ -185,7 +186,7 @@ class SimpleRxRestQuery<T> extends Query implements RxQuery<T> {
                             while(bsonType != BsonType.END_OF_DOCUMENT) {
 
                                 String attr  = jsonReader.readName()
-                                if(attr == _EMBEDDED) {
+                                if(attr == HalConstants.EMBEDDED) {
                                     jsonReader.readStartDocument()
                                     bsonType = jsonReader.currentBsonType
                                     while(bsonType != BsonType.END_OF_DOCUMENT) {
@@ -265,14 +266,14 @@ class SimpleRxRestQuery<T> extends Query implements RxQuery<T> {
         return remaining as Set
     }
 
-    protected LinkedMultiValueMap<String,Object> buildParameters() {
+    protected LinkedMultiValueMap<String,Object> buildParameters(Map<String,Object> queryArguments) {
         Query.Junction junction = criteria
 
-        return buildParameters(junction)
+        return buildParameters(queryArguments, junction)
 
     }
 
-    protected LinkedMultiValueMap<String,Object> buildParameters(Query.Junction junction) {
+    protected LinkedMultiValueMap<String,Object> buildParameters(Map<String,Object> queryArguments, Query.Junction junction) {
         if (!(junction instanceof Query.Conjunction)) {
             throw new QueryException("Only conjunctions are supported by this query implementation")
         } else {
@@ -282,7 +283,7 @@ class SimpleRxRestQuery<T> extends Query implements RxQuery<T> {
             if (!allCriteria.isEmpty()) {
                 for (Query.Criterion c in allCriteria) {
                     if (c instanceof Query.Conjunction) {
-                        return buildParameters((Query.Conjunction)c)
+                        return buildParameters(queryArguments, (Query.Conjunction)c)
                     } else if (c instanceof Query.IdEquals) {
                         id = (Serializable)((Query.IdEquals) c).getValue()
                         String idName = entity.getMapping().getIdentifier().getIdentifierName()[0]
@@ -302,6 +303,16 @@ class SimpleRxRestQuery<T> extends Query implements RxQuery<T> {
                         }
                     }
                 }
+            }
+
+            def value = queryArguments.get(EXPAND_ARGUMENT)
+            if(value instanceof Iterable) {
+                for(o in ((Iterable)value)) {
+                    queryParameters.add(EXPAND_ARGUMENT, o.toString())
+                }
+            }
+            else if(value != null) {
+                queryParameters.add(EXPAND_ARGUMENT, value.toString())
             }
 
             buildPaginationParameters(queryParameters)

@@ -227,7 +227,7 @@ class ToOneSpec extends RxGormSpec {
     void "Test that reading a mapped regular to one association that is returned directly within the JSON body doesn't return a proxy"() {
         given:"A canned response"
         def mock = client.expect {
-            uri '/club/1'
+            uri '/club/1?expand=owner&expand=captain'
             accept(MediaType.HAL_JSON)
         }
         .respond {
@@ -246,7 +246,7 @@ class ToOneSpec extends RxGormSpec {
         }
 
         when:"A get request is issued"
-        Observable<Club> observable = Club.get(1)
+        Observable<Club> observable = Club.get(1, [expand:['owner', 'captain']])
         Club c = observable.toBlocking().first()
 
         then:"The result is correct"
