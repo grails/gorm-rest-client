@@ -308,11 +308,11 @@ class SimpleRxRestQuery<T> extends Query implements RxQuery<T> {
             def value = queryArguments.get(EXPAND_ARGUMENT)
             if(value instanceof Iterable) {
                 for(o in ((Iterable)value)) {
-                    queryParameters.add(EXPAND_ARGUMENT, o.toString())
+                    queryParameters.add(datastoreClient.expandParameter, o.toString())
                 }
             }
             else if(value != null) {
-                queryParameters.add(EXPAND_ARGUMENT, value.toString())
+                queryParameters.add(datastoreClient.expandParameter, value.toString())
             }
 
             buildPaginationParameters(queryParameters)

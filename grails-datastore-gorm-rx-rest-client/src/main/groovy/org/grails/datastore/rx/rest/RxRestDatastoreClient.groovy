@@ -76,6 +76,7 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient<RxHttpClientBuilde
     public static final String SETTING_INTERCEPTORS = "grails.gorm.rest.interceptors"
     public static final String SETTING_QUERY_TYPE = "grails.gorm.rest.query.type"
     public static final String SETTING_ORDER_PARAMETER = "grails.gorm.rest.parameters.order"
+    public static final String SETTING_EXPAND_PARAMETER = "grails.gorm.rest.parameters.expand"
     public static final String SETTING_SORT_PARAMETER = "grails.gorm.rest.parameters.sort"
     public static final String SETTING_MAX_PARAMETER = "grails.gorm.rest.parameters.max"
     public static final String SETTING_QUERY_PARAMETER = "grails.gorm.rest.parameters.query"
@@ -86,6 +87,7 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient<RxHttpClientBuilde
     public static final String DEFAULT_OFFSET_PARAMETER = "offset"
     public static final String DEFAULT_SORT_PARAMETER = "sort"
     public static final String DEFAULT_MAX_PARAMETER = "max"
+    public static final String DEFAULT_EXPAND_PARAMETER = "expand"
     public static final String DEFAULT_QUERY_PARAMETER = "q"
 
 
@@ -100,6 +102,7 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient<RxHttpClientBuilde
     final String offsetParameter
     final String maxParameter
     final String sortParameter
+    final String expandParameter
     final Set<String> defaultParameterNames
     final RxHttpClientBuilder rxHttpClientBuilder
     final List<RequestInterceptor> interceptors = []
@@ -132,12 +135,14 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient<RxHttpClientBuilde
         this.sortParameter = configuration.getProperty(SETTING_SORT_PARAMETER, String, DEFAULT_SORT_PARAMETER)
         this.maxParameter = configuration.getProperty(SETTING_MAX_PARAMETER, String, DEFAULT_MAX_PARAMETER)
         this.queryParameter = configuration.getProperty(SETTING_QUERY_PARAMETER, String, DEFAULT_QUERY_PARAMETER)
+        this.expandParameter = configuration.getProperty(SETTING_EXPAND_PARAMETER, String, DEFAULT_EXPAND_PARAMETER)
         this.defaultParameterNames = new HashSet<>()
         defaultParameterNames.add(sortParameter)
         defaultParameterNames.add(maxParameter)
         defaultParameterNames.add(offsetParameter)
         defaultParameterNames.add(orderParameter)
         defaultParameterNames.add(queryParameter)
+        defaultParameterNames.add(expandParameter)
 
         initialize(mappingContext)
     }
