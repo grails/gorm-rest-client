@@ -27,7 +27,7 @@ ext {
     springBootVersion = "1.3.5.RELEASE"
     springVersion = "4.1.7"
     isCiBuild = project.hasProperty("isCiBuild")
-    isBuildSnapshot = version.endsWith("BUILD-SNAPSHOT")
+    isBuildSnapshot = version.endsWith("-SNAPSHOT")
 
     servletApiVersion = "3.0.1"
 
@@ -50,7 +50,7 @@ subprojects { project ->
         group "org.grails"
     }
 
-    version project.gormVersion
+    version rootProject.version
     ext {
         projectInfo = new PublishingConvention(project)
         pomInfo = {

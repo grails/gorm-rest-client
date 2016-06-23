@@ -1,5 +1,5 @@
 = RxGORM REST Client
-Graeme Rocher, Burt Beckwith:version: 6.0.0.BUILD-SNAPSHOT
+Graeme Rocher
 :imagesdir: ./images
 :source-highlighter: coderay
 :last-update-label!:
