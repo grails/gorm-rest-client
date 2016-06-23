@@ -119,6 +119,30 @@ trait RxRestEntity<D> implements RxEntity<D>, DynamicAttributes {
     }
 
     /**
+     * Save an entity using the given closure to customize the request
+     *
+     * @param callable The callable
+     * @return An observable
+     */
+    Observable<D> post(@DelegatesTo(HttpClientRequestBuilder) Closure callable = null) {
+        return patch([:], callable)
+    }
+
+    /**
+     * Save an entity using the given closure to customize the request
+     *
+     * @param callable The callable
+     * @return An observable
+     */
+    Observable<D> post(Map arguments, @DelegatesTo(HttpClientRequestBuilder) Closure callable = null) {
+        arguments = arguments == null ? [:] : arguments
+        arguments.put(Settings.ARGUMENT_METHOD, HttpMethod.POST)
+        if(callable != null) {
+            arguments.put(Settings.ARGUMENT_INTERCEPTOR, createInterceptor(callable))
+        }
+        return RxEntity.super.save(arguments)
+    }
+    /**
      * Delete an entity using the given closure to customize the request
      *
      * @param callable The callable
