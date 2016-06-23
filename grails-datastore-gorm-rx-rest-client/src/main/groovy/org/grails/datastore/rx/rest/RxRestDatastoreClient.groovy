@@ -355,9 +355,11 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient<RxHttpClientBuilde
                 if(interceptorArgument instanceof RequestInterceptor) {
                     postObservable = ((RequestInterceptor)interceptorArgument).intercept(restEndpointPersistentEntity, (RxEntity)object, postObservable)
                 }
-                postObservable = postObservable.writeContent(
-                    createContentWriteObservable(restEndpointPersistentEntity, codec, entityOp)
-                )
+                if(postObservable instanceof HttpClientRequest) {
+                    postObservable = ((HttpClientRequest)postObservable).writeContent(
+                            createContentWriteObservable(restEndpointPersistentEntity, codec, entityOp)
+                    )
+                }
                 postObservable = postObservable.map { HttpClientResponse response ->
                     return new ResponseAndEntity(uri, response, entity, object, codec)
                 }
@@ -393,16 +395,20 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient<RxHttpClientBuilde
                         requestObservable = httpClient.createPut(uri)
                 }
                 requestObservable = requestObservable.setHeader( HttpHeaderNames.CONTENT_TYPE, contentType )
-                                             .setHeader( HttpHeaderNames.ACCEPT, contentType )
-                requestObservable = prepareRequest(restEndpointPersistentEntity, requestObservable, object)
+                                                     .setHeader( HttpHeaderNames.ACCEPT, contentType )
+                Observable<HttpClientResponse> preparedObservable = prepareRequest(restEndpointPersistentEntity, requestObservable, object)
+                Observable finalObservable = preparedObservable
+
                 def interceptorArgument = operation.arguments.interceptor
                 if(interceptorArgument instanceof RequestInterceptor) {
-                    requestObservable = ((RequestInterceptor)interceptorArgument).intercept(restEndpointPersistentEntity, (RxEntity)object, requestObservable)
+                    finalObservable = ((RequestInterceptor)interceptorArgument).intercept(restEndpointPersistentEntity, (RxEntity)object, preparedObservable)
                 }
 
-                Observable finalObservable = requestObservable.writeContent(
-                    createContentWriteObservable(restEndpointPersistentEntity, codec, entityOp)
-                )
+                if(finalObservable instanceof HttpClientRequest) {
+                    finalObservable = ((HttpClientRequest)finalObservable).writeContent(
+                            createContentWriteObservable(restEndpointPersistentEntity, codec, entityOp)
+                    )
+                }
                 finalObservable = finalObservable.map { HttpClientResponse response ->
                     return new ResponseAndEntity(uri, response, entity, object, codec)
                 }
@@ -649,20 +655,21 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient<RxHttpClientBuilde
         return new RestClientMappingContext(configuration, classes)
     }
 
-    HttpClientRequest<ByteBuf, ByteBuf> prepareRequest(RestEndpointPersistentEntity restEndpointPersistentEntity, HttpClientRequest<ByteBuf, ByteBuf> httpClientRequest, Object instance = null) {
+    Observable<HttpClientResponse> prepareRequest(RestEndpointPersistentEntity restEndpointPersistentEntity, HttpClientRequest<ByteBuf, ByteBuf> httpClientRequest, Object instance = null) {
+        Observable<HttpClientResponse> finalRequest = httpClientRequest
         if (username != null && password != null) {
             String usernameAndPassword = "$username:$password"
             def encoded = Base64.encode(Unpooled.wrappedBuffer(usernameAndPassword.bytes)).toString(charset)
-            httpClientRequest = httpClientRequest.addHeader HttpHeaderNames.AUTHORIZATION, "Basic $encoded".toString()
+            finalRequest = httpClientRequest.addHeader HttpHeaderNames.AUTHORIZATION, "Basic $encoded".toString()
         }
 
         for(RequestInterceptor i in interceptors) {
-            httpClientRequest = i.intercept(restEndpointPersistentEntity, (RxEntity)instance, httpClientRequest)
+            finalRequest = i.intercept(restEndpointPersistentEntity, (RxEntity)instance, finalRequest)
         }
         for(RequestInterceptor i in restEndpointPersistentEntity.interceptors) {
-            httpClientRequest = i.intercept(restEndpointPersistentEntity, (RxEntity)instance, httpClientRequest)
+            finalRequest = i.intercept(restEndpointPersistentEntity, (RxEntity)instance, finalRequest)
         }
-        return httpClientRequest
+        return finalRequest
     }
 
     @Override

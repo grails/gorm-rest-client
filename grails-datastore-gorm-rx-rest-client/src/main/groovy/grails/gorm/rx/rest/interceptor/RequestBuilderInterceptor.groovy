@@ -3,7 +3,9 @@ package grails.gorm.rx.rest.interceptor
 import grails.gorm.rx.RxEntity
 import grails.http.client.builder.HttpClientRequestBuilder
 import io.reactivex.netty.protocol.http.client.HttpClientRequest
+import io.reactivex.netty.protocol.http.client.HttpClientResponse
 import org.grails.datastore.rx.rest.RestEndpointPersistentEntity
+import rx.Observable
 
 /**
  * Allows creating interceptors via builder syntax. Implementors should implement to the "build" method and call "buildRequest" providing the closure
@@ -15,8 +17,11 @@ import org.grails.datastore.rx.rest.RestEndpointPersistentEntity
 abstract class RequestBuilderInterceptor implements RequestInterceptor {
 
     @Override
-    final HttpClientRequest intercept(RestEndpointPersistentEntity entity, RxEntity instance, HttpClientRequest request) {
-        def builder = new HttpClientRequestBuilder(request, entity.charset)
+    final Observable<HttpClientResponse> intercept(RestEndpointPersistentEntity entity, RxEntity instance, Observable<HttpClientResponse> request) {
+        if( !(request instanceof HttpClientRequest) ) {
+            throw new IllegalStateException("Response cannot be written to from within an interceptor")
+        }
+        def builder = new HttpClientRequestBuilder((HttpClientRequest)request, entity.charset)
 
         def callable = build(entity, instance, request)
         callable.setDelegate(builder)

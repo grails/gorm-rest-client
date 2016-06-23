@@ -231,15 +231,16 @@ class RxHttpClientBuilder implements Closeable{
     }
 
     @CompileDynamic
-    HttpClientRequest customizeRequest(HttpClientRequest<ByteBuf, ByteBuf> request, Closure configurer) {
+    Observable<io.reactivex.netty.protocol.http.client.HttpClientResponse> customizeRequest(HttpClientRequest<ByteBuf, ByteBuf> request, Closure configurer) {
+        Observable<io.reactivex.netty.protocol.http.client.HttpClientResponse> finalRequest = request
         if(configurer != null) {
             HttpClientRequestBuilder requestBuilder = new HttpClientRequestBuilder(request, charset)
             configurer.setDelegate(requestBuilder)
             configurer.call()
-            request = requestBuilder.request
+            finalRequest = requestBuilder.request
         }
 
-        return request
+        return finalRequest
     }
 
     private InetSocketAddress createAddressForURI(URI uriObject) {

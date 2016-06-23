@@ -2,7 +2,9 @@ package grails.gorm.rx.rest.interceptor
 
 import grails.gorm.rx.RxEntity
 import io.reactivex.netty.protocol.http.client.HttpClientRequest
+import io.reactivex.netty.protocol.http.client.HttpClientResponse
 import org.grails.datastore.rx.rest.RestEndpointPersistentEntity
+import rx.Observable
 
 /**
  * Intercept a {@link HttpClientRequest} and modify it if necessary prior to execution
@@ -24,5 +26,5 @@ interface RequestInterceptor {
      *
      * @return The mutated or original request. An interceptor should never return null and should never perform a blocking operation.
      */
-    HttpClientRequest intercept(RestEndpointPersistentEntity entity, RxEntity instance, HttpClientRequest request)
+    Observable<HttpClientResponse> intercept(RestEndpointPersistentEntity entity, RxEntity instance, Observable<HttpClientResponse> request)
 }

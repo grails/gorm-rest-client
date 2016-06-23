@@ -121,17 +121,18 @@ class SimpleRxRestQuery<T> extends Query implements RxQuery<T> {
         }
 
         HttpClientRequest httpClientRequest = httpClient.createGet(uri)
+        httpClientRequest = httpClientRequest.setHeader(HttpHeaderNames.ACCEPT, contentType.toString())
 
-        httpClientRequest = datastoreClient.prepareRequest(restEndpointPersistentEntity, httpClientRequest)
+        Observable<HttpClientResponse> finalRequest = datastoreClient.prepareRequest(restEndpointPersistentEntity, httpClientRequest)
 
 
         def interceptorArgument = queryArguments.interceptor
-        if(interceptorArgument instanceof RequestInterceptor) {
-            httpClientRequest = ((RequestInterceptor)interceptorArgument).intercept(restEndpointPersistentEntity, null, httpClientRequest)
-        }
-        httpClientRequest = httpClientRequest.setHeader(HttpHeaderNames.ACCEPT, contentType.toString())
 
-        httpClientRequest
+        if(interceptorArgument instanceof RequestInterceptor) {
+            finalRequest = ((RequestInterceptor)interceptorArgument).intercept(restEndpointPersistentEntity, null, finalRequest)
+        }
+
+        finalRequest
                 .switchMap { HttpClientResponse response ->
             response.getContent()
         }.switchMap { Object object ->
