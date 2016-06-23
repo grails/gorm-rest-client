@@ -111,7 +111,6 @@ abstract class HttpMessageBuilder<T> {
         return (T)this
     }
 
-
     /**
      * Sets the body of the request to the XML string argument.
      *
