@@ -1,0 +1,68 @@
+All of the <<configOptions,configuration options>> for RxGORM for REST can be found within the link:../api/org/grails/datastore/rx/rest/config/Settings.html[Settings] class.
+
+=== Basic Configuration
+
+==== Server Host
+
+You can configure the server host to connect to when issuing HTTP requests using the `grails.gorm.rest.host` setting in `grails-app/conf/application.yml`:
+
+[source,yaml]
+----
+grails:
+    gorm:
+        rest:
+            host: http://localhost:8080
+----
+
+For environment specific configuration you can nest the configuration within each environment block:
+
+[source,yaml]
+----
+environments:
+    development:
+        grails:
+            gorm:
+                rest:
+                    host: http://localhost:8080
+    production:
+        grails:
+            gorm:
+                rest:
+                    host: http://myapiserver.com
+----
+
+==== Read Timeout
+
+You can configure the default read timeout (in milliseconds) using the `grails.gorm.rest.readTimeout` setting:
+
+[source,yaml]
+----
+grails:
+    gorm:
+        rest:
+            host: http://localhost:8080
+            readTimeout: 2000
+----
+
+==== Wire Logging
+
+To enable RxNetty wire logging you first need to set the log level using the `grails.gorm.rest.logLevel` setting:
+
+[source,yaml]
+----
+grails:
+    gorm:
+        rest:
+            host: http://localhost:8080
+            readTimeout: 2000
+            logLevel: TRACE
+----
+
+Then ensure your log configuration enables logging for the `io.netty.handler.logging` package. For example in `logback.groovy`:
+
+[source,groovy]
+----
+logger("io.netty.handler.logging", TRACE)
+----
+
+

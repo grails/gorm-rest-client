@@ -1,0 +1,17 @@
+
+With a single host configuration RxGORM for REST will create a connection pool for that single host.
+
+The connection pool is defined by a https://github.com/ReactiveX/RxNetty/blob/0.5.x/rxnetty-common/src/main/java/io/reactivex/netty/client/pool/PoolConfig.java[io.reactivex.netty.client.pool.PoolConfig] instance.
+
+The properties of this instance can configured via the `grails.gorm.rest.pool.options` property. For example:
+
+[source,yaml]
+----
+grails:
+    gorm:
+        rest:
+            host: http://localhost:8080
+            pool:
+                options:
+                    maxConnections: 20
+----

@@ -1,4 +1,4 @@
-= RxGORM REST Client
+= RxGORM for REST
 Graeme Rocher
 :imagesdir: ./images
 :source-highlighter: coderay
@@ -8,3 +8,114 @@ Graeme Rocher
 == Introduction
 
 include::introduction.adoc[]
+
+[[gettingStarted]]
+== Getting Started
+
+[[installation]]
+=== Installation
+include::gettingStarted/installation.adoc[]
+
+[[creatingDomainClasses]]
+=== Creating Domain Classes
+include::gettingStarted/creatingDomainClasses.adoc[]
+
+[[crud]]
+=== Performing CRUD Operations
+include::gettingStarted/CRUD.adoc[]
+
+[[configuration]]
+== Configuration
+
+include::configuration/index.adoc[]
+
+[[singleHost]]
+=== Single Host Connection Pooling
+
+include::configuration/singleHost.adoc[]
+
+[[loadBalanced]]
+=== Client Side Load Balancing
+
+include::configuration/loadBalanced.adoc[]
+
+[[domainClasses]]
+== Working with Domain Classes
+
+include::domain/index.adoc[]
+
+[[identity]]
+=== Identity Generation
+
+include::domain/identity.adoc[]
+
+[[dynamicAttributes]]
+=== Dynamic Attributes
+
+include::domain/dynamicAttributes.adoc[]
+
+[[requestCustomization]]
+=== Customizing the Request
+
+include::domain/requestCustomization.adoc[]
+
+[[interceptors]]
+=== Request Interceptors
+
+include::domain/interceptors.adoc[]
+
+[[batchUpdates]]
+=== Batch Updates
+
+include::domain/batchWrites.adoc[]
+
+[[customTypes]]
+=== Custom Types
+
+include::domain/customTypes.adoc[]
+
+
+[[associations]]
+== Modelling Associations
+
+include::associations/index.adoc[]
+
+[[embedded]]
+=== Embedded
+
+include::associations/embedded.adoc[]
+
+[[hasOne]]
+=== Single Ended Associations
+
+include::associations/hasOne.adoc[]
+
+[[hasMany]]
+=== Many Ended Associations
+
+include::associations/hasMany.adoc[]
+
+[[lazyLoading]]
+=== Lazy Loading
+
+include::associations/lazyLoading.adoc[]
+
+[[querying]]
+== Querying with RxGORM
+
+include::querying/index.adoc[]
+
+[[joins]]
+=== Join Queries
+
+include::querying/joinQueries.adoc[]
+
+[[bsonQueries]]
+=== MongoDB-style Queries
+
+include::querying/bsonQueries.adoc[]
+
+[[reference]]
+== Reference
+
+include::reference/index.adoc[]

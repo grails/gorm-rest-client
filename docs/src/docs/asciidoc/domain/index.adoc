@@ -1,0 +1,16 @@
+When using RxGORM for REST simple types will be converted to their JSON equivalents during the encoding process. For types that cannot be represented in JavaScript such as `BigDecimal` these will be converted to a JSON `String` type.
+
+JSON arrays can be represented with the `List` type:
+
+[source,groovy]
+----
+package example
+
+import grails.gorm.rx.rest.*
+
+class Book implements RxRestEntity<Book> {
+    String title
+    List<String> authors
+}
+----
+

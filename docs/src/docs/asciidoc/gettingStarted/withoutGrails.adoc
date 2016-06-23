@@ -1,0 +1,29 @@
+If you are not developing a Grails application then define the following dependency in your `build.gradle` or `pom.xml`:
+
+[source,groovy,subs="attributes"]
+.`build.gradle`
+----
+compile "org.grails:grails-datastore-gorm-rx-rest-client:{version}"
+----
+
+With that done you will need to place the following logic in the bootstrap path of your application:
+
+[source,groovy]
+----
+import org.grails.datastore.mapping.core.*
+import org.grails.datastore.rx.rest.*
+...
+
+PropertyResolver configuration = DatastoreUtils.createPropertyResolver('grails.gorm.rest.readTimeout':1500,
+                                                                       'grails.gorm.rest.host':'localhost')
+new RxRestDatastoreClient(
+            configuration, <1>
+            MyClass <2>
+)
+----
+
+<1> The configuration. This parameter is optional with the default server being localhost. See link:../api/org/grails/datastore/rx/rest/config/Settings.html[Settings] for available options.
+<2> One or many classes that implement link:../api/grails/gorm/rx/rest/RxRestEntity.html[RxRestEntity]
+
+The link:../api/org/grails/datastore/rx/rest/RxRestDatastoreClient.html[RxRestDatastoreClient] class is required to initialize RxGORM for REST.
+

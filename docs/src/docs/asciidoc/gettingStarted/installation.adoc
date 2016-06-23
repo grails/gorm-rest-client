@@ -1,0 +1,11 @@
+RxGORM for REST is designed to very lightweight, and so can be used in a number of scenarios either standalone or within Grails application.
+
+[[withGrails]]
+==== Installation with Grails
+
+include::withGrails.adoc[]
+
+[[withoutGrails]]
+==== Installation without Grails
+
+include::withoutGrails.adoc[]

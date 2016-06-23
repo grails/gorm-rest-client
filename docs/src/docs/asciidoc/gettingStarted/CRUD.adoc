@@ -1,0 +1,172 @@
+Create, Read, Update and Delete (or CRUD) in REST applications are typically modelled by the HTTP verbs `GET`, `POST` and `DELETE`. The following examples will work you through how to perform each.
+
+==== Create - Saving domain instances
+
+To create and save a new instance to a REST web service you should use the `save()` method:
+
+
+[source,groovy]
+----
+new Book(title:"The Stand")
+        .save()
+        .toBlocking()
+        .first()
+----
+
+The `save()` method returns an http://reactivex.io/RxJava/javadoc/rx/Observable.html[rx.Observable].
+
+Notice that in this example we are calling `toBlocking()`, this is purely for demonstration and testing purposes to ensure the operation completes immediately.
+
+In a real world application you would typically subscribe to the observable in order to receive a result:
+
+[source,groovy]
+----
+new Book(title:"The Stand")
+        .save()
+        .subscribe { Book it ->
+    println "Title = ${it.title}"
+}
+----
+
+NOTE: If you don't call `subscribe(..)` or convert the `Observable` into a blocking operation, then no query will be executed! At least one call to `subscribe(..)` is required.
+
+The `Observable` will by default submit to the `/book` URI using an HTTP `POST` with a content type of `application/json` using the following body:
+
+[source,json]
+----
+{"title":"The Stand"}
+----
+
+You can alter both the URI and the link:../api/grails/http/MediaType.html[MediaType] to submit in the POST request using your domain mapping:
+
+[source,groovy]
+----
+package example
+
+import grails.gorm.rx.rest.*
+import grails.http.*
+
+class Book implements RxRestEntity<Book> {
+    String title
+
+    static mapping = {
+        uri "/books{/id}"
+        contentType MediaType.HAL_JSON
+    }
+}
+----
+
+In the above example a URI is specified that makes the `POST` request submit to `/books` instead. URIs are specified using the https://tools.ietf.org/html/rfc6570[RFC 6570 URI Template] syntax.
+
+The example also alters the `MediaType` used to instead be `application/hal+json`. https://tools.ietf.org/html/draft-kelly-json-hal-08[HAL (Hypertext Application Language)] is a draft specification for representing JSON responses in REST applications also supported by Grails' http://views.grails.org/latest[JSON Views].
+
+
+==== Read - Retrieving domain instances
+
+To retrieve an instance you can use the static `get(..)` method:
+
+[source,groovy]
+----
+Book.get(id)
+    .subscribe { Book it ->
+    println "Title = ${it.title}"
+}
+----
+
+The `get` method will issue an HTTP `GET` request to the `/books/id` URI and decode the `Book` from the JSON response. Both HAL and regular JSON responses are supported. To list all the available books you can use the `list()` method:
+
+[source,groovy]
+----
+Book.list()
+    .subscribe { List<Book> books ->
+    for(book in books)
+        println "Title = ${book.title}"
+}
+----
+
+To handle errors you can use the RxJava http://reactivex.io/RxJava/javadoc/rx/Observer.html[Observer] interface:
+
+[source,groovy]
+----
+observable.subscribe(new Observer<Book>() {
+    @Override
+    void onCompleted() {
+        // when all work is completed
+    }
+
+    @Override
+    void onError(Throwable e) {
+        // when an occur occurs
+    }
+
+    @Override
+    void onNext(Book book) {
+        // when a book is read
+    }
+})
+----
+
+==== Update - Updating instances
+
+To update an instance after retrieving it you can use the http://reactivex.io/RxJava/javadoc/rx/Observable.html#switchMap(rx.functions.Func1)[Observable.switchMap] method:
+
+[source,groovy]
+----
+Book.get(id)
+    .switchMap() { Book it ->
+    it.title = "The Shining"
+    return it.save()
+}.subscribe { Book updated ->
+    println "Book updated!"
+}
+----
+
+The `switchMap` transforms an `Observable` and converters the result into another `Observable`.
+
+In this example we first retrieve an instance by id which uses an HTTP `GET` method, then we call `save()` on that instance which by default will use an HTTP `PUT` method to the `/books/id` URI containing the updated JSON body in full.
+
+If you want to send only the updated properties JSON you can use the `patch()` method:
+
+[source,groovy]
+----
+book.patch()
+----
+
+The patch method will issue an HTTP `PATCH` with only the JSON that has changed.
+
+NOTE: Some REST web services use `POST` or `PATCH` instead of `PUT` for updates. If you want to configure RxGORM to always use another HTTP method you can set the `grails.gorm.rest.updateMethod` property in your configuration to the method of your choosing.
+
+
+==== Delete - Deleting instances
+
+To delete an instance after retrieving it you can use the http://reactivex.io/RxJava/javadoc/rx/Observable.html#switchMap(rx.functions.Func1)[Observable.switchMap] method:
+
+[source,groovy]
+----
+Book.get(id)
+    .switchMap() { Book it ->
+    return it.delete()
+}.subscribe { Boolean wasDeleted ->
+    if(wasDeleted) {
+        println "Book deleted!"
+    }
+}
+----
+
+This example once again will issue an HTTP `GET` method to retrieve an instance and then an HTTP `DELETE` method to delete it.
+
+If you know ahead of time the identifier of the resource you want to delete you can simply create a new instance and call `delete()` to issue an HTTP `DELETE`:
+
+[source,groovy]
+----
+Book book = new Book()
+book.id = 1L
+book.delete().subscribe { Boolean wasDeleted ->
+    if(wasDeleted) {
+        println "Book deleted!"
+    }
+}
+----
+
+WARNING: Using the constructor syntax `new Book(id:1L)` will not work in a Grails application as Grails will prevent binding the id via the constructor for security reasons.
+

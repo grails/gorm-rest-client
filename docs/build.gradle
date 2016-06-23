@@ -16,7 +16,7 @@ ext {
 
 }
 
-version project.gormVersion
+version rootProject.version
 
 apply plugin: 'org.asciidoctor.convert'
 

@@ -1,0 +1,13 @@
+If you which to use client side load balancing between multiple servers you can use the `grails.gorm.rest.hosts` option and specify multiple server hosts:
+
+[source,yaml]
+----
+grails:
+    gorm:
+        rest:
+            hosts:
+                - http://one.myapiserver.com
+                - http://two.myapiserver.com
+----
+
+The default load balancing strategy is https://github.com/ReactiveX/RxNetty/blob/0.5.x/rxnetty-http/src/main/java/io/reactivex/netty/protocol/http/client/loadbalancer/EWMABasedP2CStrategy.java[EWMABasedP2CStrategy]. If you which to specify an alternate strategy you can do so with the `grails.gorm.rest.loadBalanceStrategy` property.
