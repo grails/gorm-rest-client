@@ -21,11 +21,14 @@ import io.netty.handler.codec.http.HttpResponseStatus
 import io.netty.handler.logging.LogLevel
 import io.reactivex.netty.client.ConnectionProviderFactory
 import io.reactivex.netty.client.Host
+import io.reactivex.netty.client.loadbalancer.LoadBalancerFactory
+import io.reactivex.netty.client.loadbalancer.LoadBalancingStrategy
 import io.reactivex.netty.client.pool.PoolConfig
 import io.reactivex.netty.client.pool.SingleHostPoolingProviderFactory
 import io.reactivex.netty.protocol.http.client.HttpClient
 import io.reactivex.netty.protocol.http.client.HttpClientRequest
 import io.reactivex.netty.protocol.http.client.HttpClientResponse
+import io.reactivex.netty.protocol.http.client.loadbalancer.EWMABasedP2CStrategy
 import org.bson.codecs.Codec
 import org.bson.codecs.configuration.CodecRegistry
 import org.grails.datastore.bson.codecs.BsonPersistentEntityCodec
@@ -34,6 +37,7 @@ import org.grails.datastore.bson.json.JsonWriter
 import org.grails.datastore.gorm.GormValidateable
 import org.grails.datastore.mapping.config.ConfigurationUtils
 import org.grails.datastore.mapping.core.DatastoreUtils
+import org.grails.datastore.mapping.model.DatastoreConfigurationException
 import org.grails.datastore.mapping.model.PersistentEntity
 import org.grails.datastore.mapping.query.Query
 import org.grails.datastore.mapping.reflect.EntityReflector
@@ -90,7 +94,7 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient<RxHttpClientBuilde
     /**
      * The default client host to connect to
      */
-    final Observable<Host> defaultClientHost
+    final Observable<Host> hosts
 
     /**
      * The {@link CodecRegistry}
@@ -170,11 +174,15 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient<RxHttpClientBuilde
     protected final boolean allowBlockingOperations
 
 
-    RxRestDatastoreClient(SocketAddress serverAddress, PropertyResolver configuration, RestClientMappingContext mappingContext) {
+    RxRestDatastoreClient(List<SocketAddress> serverAddress, PropertyResolver configuration, RestClientMappingContext mappingContext) {
         super(mappingContext)
 
+        if(serverAddress.isEmpty()) {
+            throw new IllegalArgumentException("At least 1 server address is required")
+        }
+
         this.allowBlockingOperations = configuration.getProperty(SETTING_ALLOW_BLOCKING, Boolean, true)
-        this.defaultClientHost = Observable.just(new Host(serverAddress))
+        this.hosts = Observable.merge(serverAddress.collect() { SocketAddress address -> Observable.just(new Host(address))})
         this.username = configuration.getProperty(SETTING_USERNAME, String, null)
         this.password = configuration.getProperty(SETTING_PASSWORD, String, null)
         this.charset = Charset.forName( configuration.getProperty(SETTING_CHARSET, "UTF-8"))
@@ -182,11 +190,16 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient<RxHttpClientBuilde
         this.readTimeout = configuration.getProperty(SETTING_READ_TIMEOUT, Integer, -1)
         this.logLevel = configuration.getProperty(SETTING_LOG_LEVEL, LogLevel, null)
         this.defaultUpdateMethod = configuration.getProperty(SETTING_UPDATE_METHOD, HttpMethod, HttpMethod.PUT)
-        PoolConfigBuilder poolConfigBuilder = new PoolConfigBuilder(configuration)
-        PoolConfig pool = poolConfigBuilder.build()
 
-        // TODO: support client side loading balancing
-        this.connectionProviderFactory = SingleHostPoolingProviderFactory.create(pool)
+        if(serverAddress.size() == 1) {
+            PoolConfigBuilder poolConfigBuilder = new PoolConfigBuilder(configuration)
+            PoolConfig pool = poolConfigBuilder.build()
+            this.connectionProviderFactory = SingleHostPoolingProviderFactory.create(pool)
+        }
+        else {
+            final LoadBalancingStrategy loadBalanceStrategy = configuration.getProperty(SETTING_LOAD_BALANCE_STRATEGY, LoadBalancingStrategy, new EWMABasedP2CStrategy())
+            this.connectionProviderFactory = LoadBalancerFactory.create(loadBalanceStrategy)
+        }
         this.codecRegistry = mappingContext.codecRegistry
         def clientConfiguration = new DefaultConfiguration()
         clientConfiguration.setEncoding(charset.toString())
@@ -212,12 +225,24 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient<RxHttpClientBuilde
         initialize(mappingContext)
     }
 
+    RxRestDatastoreClient(List<SocketAddress> socketAddresses, RestClientMappingContext mappingContext) {
+        this(socketAddresses, DatastoreUtils.createPropertyResolver(null), mappingContext)
+    }
+
+    RxRestDatastoreClient(List<SocketAddress> socketAddresses, PropertyResolver configuration, Class... classes) {
+        this(socketAddresses, configuration, createMappingContext(configuration, classes))
+    }
+
+    RxRestDatastoreClient(List<SocketAddress> socketAddresses, Class... classes) {
+        this(socketAddresses, createMappingContext(DatastoreUtils.createPropertyResolver(null), classes))
+    }
+
     RxRestDatastoreClient(SocketAddress serverAddress, RestClientMappingContext mappingContext) {
-        this(serverAddress, DatastoreUtils.createPropertyResolver(null), mappingContext)
+        this([serverAddress], DatastoreUtils.createPropertyResolver(null), mappingContext)
     }
 
     RxRestDatastoreClient(SocketAddress serverAddress, PropertyResolver configuration, Class... classes) {
-        this(serverAddress, configuration, createMappingContext(configuration, classes))
+        this([serverAddress], configuration, createMappingContext(configuration, classes))
     }
 
     RxRestDatastoreClient(SocketAddress serverAddress, Class... classes) {
@@ -225,7 +250,7 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient<RxHttpClientBuilde
     }
 
     RxRestDatastoreClient(PropertyResolver configuration, RestClientMappingContext mappingContext) {
-        this(createServerSocketAddress(configuration), configuration, mappingContext)
+        this(createServerSocketAddresses(configuration), configuration, mappingContext)
     }
 
     RxRestDatastoreClient(RestClientMappingContext mappingContext) {
@@ -285,7 +310,7 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient<RxHttpClientBuilde
     }
 
     HttpClient<ByteBuf, ByteBuf> createHttpClient(Map<String,Object> arguments) {
-        HttpClient httpClient = HttpClient.newClient(connectionProviderFactory, defaultClientHost)
+        HttpClient httpClient = HttpClient.newClient(connectionProviderFactory, hosts)
         if(arguments?.containsKey(ARGUMENT_READ_TIMEOUT)) {
             httpClient = httpClient.readTimeOut(arguments.get(ARGUMENT_READ_TIMEOUT) as Integer, TimeUnit.MILLISECONDS)
         }
@@ -594,8 +619,31 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient<RxHttpClientBuilde
         })
     }
 
-    protected static InetSocketAddress createServerSocketAddress(PropertyResolver configuration) {
-        new InetSocketAddress(configuration.getProperty(SETTING_HOST, String.class, "localhost"), configuration.getProperty(SETTING_PORT, Integer.class, 8080))
+    protected static List<SocketAddress> createServerSocketAddresses(PropertyResolver configuration) {
+        List hosts = configuration.getProperty(SETTING_HOSTS, List, Collections.emptyList())
+
+        if(hosts.isEmpty()) {
+
+            String hostString = configuration.getProperty(SETTING_HOST, String.class, "http://localhost:8080")
+
+            try {
+                URI uri = new URI(hostString)
+                return [ new InetSocketAddress(uri.host, uri.port > -1 ? uri.port : 80) ] as List<SocketAddress>
+            } catch (URISyntaxException e) {
+                throw new DatastoreConfigurationException("Invalid host configuration specified: $hostString")
+            }
+        }
+        else {
+            return hosts.collect() { Object it ->
+                try {
+                    URI uri = new URI(it.toString())
+                    return new InetSocketAddress(uri.host, uri.port > -1 ? uri.port : 80)
+                } catch (URISyntaxException e) {
+                    throw new DatastoreConfigurationException("Invalid host configuration specified: $it")
+                }
+            } as List<SocketAddress>
+        }
+
     }
 
     protected static RestClientMappingContext createMappingContext(PropertyResolver configuration, Class... classes) {

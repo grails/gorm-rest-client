@@ -12,10 +12,11 @@ interface Settings {
      * The default host to connect to
      */
     String SETTING_HOST             = "grails.gorm.rest.host"
+
     /**
-     * The default port to connect to
+     * The hosts to connect to in a load balanced configuration
      */
-    String SETTING_PORT             = "grails.gorm.rest.port"
+    String SETTING_HOSTS            = "grails.gorm.rest.hosts"
     /**
      * The character encoding to use
      */
@@ -34,9 +35,14 @@ interface Settings {
      */
     String SETTING_UPDATE_METHOD        = "grails.gorm.rest.updateMethod"
     /**
-     * The configuration options to create the {@link io.reactivex.netty.client.pool.PoolConfig} with
+     * The configuration options to create the {@link io.reactivex.netty.client.pool.PoolConfig} with (only applicable to single host configurations)
      */
     String SETTING_POOL_OPTIONS     = "grails.gorm.rest.pool.options"
+
+    /**
+     * The  {@link io.reactivex.netty.client.loadbalancer.LoadBalancingStrategy} to use (only applicable to multiple host configurations)
+     */
+    String SETTING_LOAD_BALANCE_STRATEGY     = "grails.gorm.rest.loadBalanceStrategy"
     /**
      * The username to ues for BASIC auth
      */
