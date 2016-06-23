@@ -127,4 +127,9 @@ interface Settings {
      * The method argument
      */
     String ARGUMENT_METHOD          = "method"
+
+    /**
+     * The uri argument
+     */
+    String ARGUMENT_URI = "uri"
 }

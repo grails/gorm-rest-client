@@ -29,6 +29,7 @@ import org.grails.datastore.rx.query.RxQueryUtils
 import org.grails.datastore.rx.rest.RxRestDatastoreClient
 import org.grails.datastore.rx.rest.codecs.RestEntityCodecRegistry
 import org.grails.datastore.rx.rest.RestEndpointPersistentEntity
+import org.grails.datastore.rx.rest.config.Settings
 import org.grails.datastore.rx.rest.json.HalConstants
 import org.springframework.util.LinkedMultiValueMap
 import rx.Observable
@@ -87,6 +88,7 @@ class SimpleRxRestQuery<T> extends Query implements RxQuery<T> {
             }
         }
 
+        UriTemplate uriTemplate = queryArguments.containsKey(Settings.ARGUMENT_URI) ? UriTemplate.fromTemplate(queryArguments.get(Settings.ARGUMENT_URI).toString()) : this.uriTemplate
         String uri = uriTemplate.expand((Map<String,Object>)queryParameters)
         Set<String> remaining = calculateRemainingParameters(queryParameters)
 

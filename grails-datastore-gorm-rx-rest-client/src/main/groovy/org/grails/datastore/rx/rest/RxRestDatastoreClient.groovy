@@ -272,12 +272,13 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient<RxHttpClientBuilde
 
     @Override
     Observable<Number> batchDelete(BatchOperation operation) {
-        HttpClient httpClient = createHttpClient(operation.arguments)
+        Map operationArguments = operation.arguments
+        HttpClient httpClient = createHttpClient(operationArguments)
         List<HttpClientRequest> observables = []
 
         for (PersistentEntity entity in operation.deletes.keySet()) {
             RestEndpointPersistentEntity restEndpointPersistentEntity = (RestEndpointPersistentEntity)entity
-            UriTemplate uriTemplate = restEndpointPersistentEntity.uriTemplate
+            UriTemplate uriTemplate = operationArguments.containsKey(ARGUMENT_URI) ? UriTemplate.fromTemplate(operationArguments.get(ARGUMENT_URI).toString()) : restEndpointPersistentEntity.uriTemplate
             EntityReflector entityReflector = entity.getReflector()
 
             Map<Serializable, BatchOperation.EntityOperation> entityOperationMap = operation.deletes.get(entity)
@@ -331,12 +332,13 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient<RxHttpClientBuilde
 
     @Override
     Observable<Number> batchWrite(BatchOperation operation) {
-        HttpClient httpClient = createHttpClient(operation.arguments)
+        Map operationArguments = operation.arguments
+        HttpClient httpClient = createHttpClient(operationArguments)
         List<Observable> observables = []
 
         for(PersistentEntity entity in operation.inserts.keySet()) {
             RestEndpointPersistentEntity restEndpointPersistentEntity = (RestEndpointPersistentEntity)entity
-            UriTemplate uriTemplate = restEndpointPersistentEntity.uriTemplate
+            UriTemplate uriTemplate = operationArguments.containsKey(ARGUMENT_URI) ? UriTemplate.fromTemplate(operationArguments.get(ARGUMENT_URI).toString()) : restEndpointPersistentEntity.uriTemplate
             EntityReflector entityReflector = entity.getReflector()
             Map<Serializable, BatchOperation.EntityOperation> entityOperationMap = operation.inserts.get(entity)
             Class type = entity.getJavaClass()
@@ -351,7 +353,7 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient<RxHttpClientBuilde
                                                .setHeader( HttpHeaderNames.ACCEPT, contentType)
                 postObservable = prepareRequest(restEndpointPersistentEntity, postObservable, object)
 
-                def interceptorArgument = operation.arguments.interceptor
+                def interceptorArgument = operationArguments.interceptor
                 if(interceptorArgument instanceof RequestInterceptor) {
                     postObservable = ((RequestInterceptor)interceptorArgument).intercept(restEndpointPersistentEntity, (RxEntity)object, postObservable)
                 }
@@ -372,7 +374,7 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient<RxHttpClientBuilde
             Map<Serializable, BatchOperation.EntityOperation> entityOperationMap = operation.updates.get(entity)
             Class type = entity.getJavaClass()
             Codec codec = getCodecRegistry().get(type)
-            UriTemplate uriTemplate = restEndpointPersistentEntity.uriTemplate
+            UriTemplate uriTemplate = operationArguments.containsKey(ARGUMENT_URI) ? UriTemplate.fromTemplate(operationArguments.get(ARGUMENT_URI).toString()) : restEndpointPersistentEntity.uriTemplate
             String contentType = ((RestEndpointPersistentEntity) entity).getMapping().getMappedForm().contentType
             EntityReflector entityReflector = entity.getReflector()
 
@@ -382,7 +384,7 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient<RxHttpClientBuilde
                 String uri = expandUri(uriTemplate, entityReflector, object)
 
                 HttpClientRequest requestObservable
-                def methodArgument = operation.arguments.method
+                def methodArgument = operationArguments.method
                 HttpMethod updateMethod =  methodArgument instanceof HttpMethod ? (HttpMethod)methodArgument : this.defaultUpdateMethod
                 switch(updateMethod) {
                     case HttpMethod.PATCH:
@@ -399,7 +401,7 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient<RxHttpClientBuilde
                 Observable<HttpClientResponse> preparedObservable = prepareRequest(restEndpointPersistentEntity, requestObservable, object)
                 Observable finalObservable = preparedObservable
 
-                def interceptorArgument = operation.arguments.interceptor
+                def interceptorArgument = operationArguments.interceptor
                 if(interceptorArgument instanceof RequestInterceptor) {
                     finalObservable = ((RequestInterceptor)interceptorArgument).intercept(restEndpointPersistentEntity, (RxEntity)object, preparedObservable)
                 }
