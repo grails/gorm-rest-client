@@ -1,4 +1,5 @@
 include "grails-http-core",
         "grails-rx-http-client",
-        "grails-datastore-gorm-rx-rest-client"
+        "grails-datastore-gorm-rx-rest-client",
+        "docs"
 

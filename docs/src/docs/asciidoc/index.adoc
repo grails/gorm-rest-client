@@ -1,0 +1,10 @@
+= RxGORM REST Client
+Graeme Rocher, Burt Beckwith:version: 6.0.0.BUILD-SNAPSHOT
+:imagesdir: ./images
+:source-highlighter: coderay
+:last-update-label!:
+
+[[introduction]]
+== Introduction
+
+include::introduction.adoc[]
