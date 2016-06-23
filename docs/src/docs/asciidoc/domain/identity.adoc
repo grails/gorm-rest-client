@@ -1,0 +1,41 @@
+By default it is assumed that numeric identifiers will be used for REST resources. This means that when you save an entity:
+
+[source,groovy]
+----
+Book book = new Book(title:"The Stand")
+book.save()
+----
+
+A HTTP `POST` request will be sent to the URI the `Book` maps to. If the REST endpoint returns JSON then the JSON will be read and the `id` field populated with the value from the server.
+
+If the `id` of your REST endpoint is not numeric or a different property then you can control that via the `mapping` block:
+
+
+[source,groovy]
+----
+@Entity
+class Product implements RxRestEntity<Product> {
+
+    String name
+
+    static mapping = {
+        id name:"name", generator:"assigned"
+    }
+}
+----
+
+In this case we have configured the `id` of the REST resource to be the `name` property of the entity. Now if you create an entity and save it:
+
+[source,groovy]
+----
+Product product = new Product(name:"MacBook")
+product.save()
+----
+
+RxGORM for REST will send a `PUT` request to the URI `/product/MacBook`. This is because RxGORM assumes that if there is an `id` then what you are trying to do is an update. To instead perform a `POST` request to the `/product` URI you must use the `insert()` method instead which forces saving of a new entity:
+
+[source,groovy]
+----
+Product product = new Product(name:"MacBook")
+product.insert()
+----

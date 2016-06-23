@@ -49,6 +49,11 @@ include::domain/index.adoc[]
 
 include::domain/identity.adoc[]
 
+[[converting]]
+=== Converting to and from JSON
+
+include::domain/converting.adoc[]
+
 [[dynamicAttributes]]
 === Dynamic Attributes
 

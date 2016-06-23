@@ -1,0 +1,14 @@
+All `RxRestEntity` instances also implement the https://gorm.grails.org/6.0.x/api/org/grails/datastore/gorm/schemaless/DynamicAttributes.html[DynamicAttributes] trait which allows you to assign arbitrary values to the object using Groovy's subscript operator:
+
+[source,groovy]
+----
+Book book = new Book(title:"The Stand")
+book['pages'] = 1000
+----
+
+These will be encoded into the JSON that is sent to the server. Any JSON attributes retrieved from the server that are not declared by the domain class are also available via the subscript operator:
+
+[source,groovy]
+----
+println book['pages']
+----
