@@ -345,7 +345,6 @@ class HttpClientRequestBuilder {
                 subscriber.onError(e)
             }
             finally {
-                byteBuf.release()
                 subscriber.onCompleted()
             }
 
