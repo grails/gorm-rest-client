@@ -2,10 +2,13 @@ package grails.http.client.test
 
 import grails.http.client.builder.server.HttpServerRequestBuilder
 import grails.http.client.builder.server.HttpServerResponseBuilder
+import groovy.transform.CompileDynamic
 import groovy.transform.CompileStatic
 import io.netty.buffer.ByteBuf
 import io.netty.handler.codec.http.DefaultFullHttpRequest
+import io.netty.handler.codec.http.FullHttpRequest
 import io.netty.handler.codec.http.HttpMethod
+import io.netty.handler.codec.http.HttpRequest
 import io.netty.handler.codec.http.HttpVersion
 import io.reactivex.netty.protocol.http.server.HttpServerRequest
 
@@ -46,8 +49,10 @@ import java.nio.charset.Charset
 @CompileStatic
 class TestHttpServerRequestBuilder {
     List<HttpServerRequest> expectedRequests = []
+    List<FullHttpRequest> expectedFullRequests = []
     List<Closure> expectedResponses = []
     List<HttpServerRequest> inboundMessages = []
+    List<ByteBuf> inboundBodies = []
 
     int expectedTotal = 0
     Charset charset = Charset.forName("UTF-8")
@@ -72,6 +77,7 @@ class TestHttpServerRequestBuilder {
         def builder = new HttpServerRequestBuilder(req)
         callable.delegate = builder
         callable.call()
+        expectedFullRequests.add(req)
         expectedRequests.add(builder.clientRequest)
         return this
     }
@@ -101,10 +107,11 @@ class TestHttpServerRequestBuilder {
         for(object in inboundMessages) {
             if(object instanceof HttpServerRequest) {
 
-                HttpServerRequest expectedRequest = expectedRequests.get(i++)
+                HttpServerRequest expectedRequest = expectedRequests.get(i)
                 HttpServerRequest actualRequest = (HttpServerRequest)object
 
-                verifyRequest(expectedRequest, actualRequest)
+                verifyRequest(expectedRequest, actualRequest, i )
+                i++
             }
             else {
                 assert false : "Found non-request object among outbound messages"
@@ -116,7 +123,7 @@ class TestHttpServerRequestBuilder {
         return true
     }
 
-    protected void verifyRequest(HttpServerRequest expected, HttpServerRequest actual) {
+    protected void verifyRequest(HttpServerRequest expected, HttpServerRequest actual, int index) {
         def expectedUri = expected.uri
         def actualUri = actual.uri
 
@@ -141,16 +148,30 @@ class TestHttpServerRequestBuilder {
             }
         }
 
-        if ( expected.contentLengthSet ) {
-            ByteBuf expectedBody = (ByteBuf)expected.content.toBlocking().first()
-            def actualBody = (ByteBuf)actual.content.toBlocking().first()
-            if( expectedBody.hasArray() && !actualBody.hasArray() ) {
-                assert false : "Expected content ${expectedBody.toString()} but got none"
-            }
-            else {
-                assert expectedBody.toString(charset) == actualBody.toString(charset)
-            }
+        ByteBuf expectedBody = (ByteBuf) getExpectedBody(expected)
+        ByteBuf actualBody = inboundBodies.size() > index ? inboundBodies[index] : null
+
+        if(expectedBody == null && actualBody == null) {
+            assert true
+        }
+        else if(expectedBody == null && actualBody != null) {
+            assert false : "Expected no content but got ${actualBody.toString(charset)}"
+        }
+        else if(expectedBody != null && actualBody == null) {
+            assert false : "Expected content ${expectedBody.toString(charset)} but got none"
+        }
+        else {
+            assert expectedBody.toString(charset) == actualBody.toString(charset)
         }
 
+    }
+
+    @CompileDynamic
+    protected ByteBuf getExpectedBody(HttpServerRequest expected) {
+        ByteBuf byteBuf = ((FullHttpRequest) expected.@nettyRequest).content()
+        if(byteBuf != null && byteBuf.array().length > 0) {
+            return byteBuf
+        }
+        return null
     }
 }

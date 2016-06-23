@@ -8,8 +8,13 @@ import grails.http.HttpMethod
 import grails.http.client.builder.HttpClientRequestBuilder
 import groovy.transform.CompileStatic
 import io.reactivex.netty.protocol.http.client.HttpClientRequest
+import org.bson.codecs.Codec
+import org.grails.datastore.bson.json.JsonReader
+import org.grails.datastore.bson.json.JsonWriter
 import org.grails.datastore.gorm.schemaless.DynamicAttributes
+import org.grails.datastore.rx.bson.codecs.RxBsonPersistentEntityCodec
 import org.grails.datastore.rx.rest.RestEndpointPersistentEntity
+import org.grails.datastore.rx.rest.RxRestDatastoreClient
 import org.grails.datastore.rx.rest.api.RxRestGormStaticApi
 import org.grails.datastore.rx.rest.config.Settings
 import org.grails.gorm.rx.api.RxGormEnhancer
@@ -26,63 +31,26 @@ import rx.Observable
 trait RxRestEntity<D> implements RxEntity<D>, DynamicAttributes {
 
     /**
-     * Retrieve an instance by id
-     *
-     * @param id The id of the instance
-     * @return An observable
+     * @return Convert this object to a JSON string
      */
-    static Observable<D> get(Serializable id, @DelegatesTo(HttpClientRequestBuilder) Closure callable) {
-        (Observable<D>)currentRestStaticApi().get(id, [interceptor:createInterceptor(callable)])
-    }
-    /**
-     * Retrieve an instance by id
-     *
-     * @param id The id of the instance
-     * @return An observable
-     */
-    static Observable<D> get(Serializable id, Map arguments, @DelegatesTo(HttpClientRequestBuilder) Closure callable) {
-        arguments.interceptor = createInterceptor(callable)
-        (Observable<D>) currentRestStaticApi().get(id, arguments)
+    String toJson() {
+        def writer = new StringWriter()
+        toJson(writer)
+        return writer.toString()
     }
 
     /**
-     * List all entities and return an observable
+     * Convert this object to JSON
      *
-     * @return An observable with all results
+     * @param writer The target writer
      */
-    static Observable<List<D>> list(@DelegatesTo(HttpClientRequestBuilder) Closure callable) {
-        (Observable<List<D>>)currentRestStaticApi().list(interceptor:createInterceptor(callable))
-    }
+    void toJson(Writer writer) {
+        RxRestGormStaticApi restStaticApi = currentRestStaticApi()
 
-    /**
-     * Finds all entities and return an observable
-     *
-     * @return An observable with all results
-     */
-    static Observable<D> findAll( @DelegatesTo(HttpClientRequestBuilder) Closure callable ) {
-        (Observable<D>)currentRestStaticApi().findAll(interceptor:createInterceptor(callable))
+        RxRestDatastoreClient client = (RxRestDatastoreClient) restStaticApi.datastoreClient
+        Codec<Object> codec = (Codec<Object>)client.codecRegistry.get(getClass())
+        codec.encode(new JsonWriter(writer),(Object)this, RxBsonPersistentEntityCodec.DEFAULT_ENCODER_CONTEXT)
     }
-
-    /**
-     * Finds all entities and return an observable
-     *
-     * @return An observable with all results
-     */
-    static Observable<D> findAll(Map args,  @DelegatesTo(HttpClientRequestBuilder) Closure callable) {
-        args.interceptor = createInterceptor(callable)
-        currentRestStaticApi().findAll(args)
-    }
-
-    /**
-     * List all entities and return an observable
-     *
-     * @return An observable with all results
-     */
-    static Observable<List<D>> list(Map args, @DelegatesTo(HttpClientRequestBuilder) Closure callable) {
-        args.interceptor = createInterceptor(callable)
-        (Observable<List<D>>)currentRestStaticApi().list(args)
-    }
-
     /**
      * Save an entity using the given closure to customize the request
      *
@@ -196,6 +164,90 @@ trait RxRestEntity<D> implements RxEntity<D>, DynamicAttributes {
         arguments.interceptor = createInterceptor(callable)
         return RxEntity.super.delete(arguments)
     }
+
+    /**
+     * Construct and object from JSON
+     *
+     * @param json The JSON string
+     * @return The object
+     */
+    static D fromJson(String json) {
+        fromJson((Reader)new StringReader(json))
+    }
+
+    /**
+     * Construct and object from JSON
+     *
+     * @param reader The reader
+     * @return The object
+     */
+    static D fromJson(Reader reader) {
+        RxRestGormStaticApi restStaticApi = currentRestStaticApi()
+
+        RxRestDatastoreClient client = (RxRestDatastoreClient) restStaticApi.datastoreClient
+        Codec<D> codec = (Codec<D>)client.codecRegistry.get(getClass())
+
+        return codec.decode(new JsonReader(reader), RxBsonPersistentEntityCodec.DEFAULT_DECODER_CONTEXT)
+    }
+
+    /**
+     * Retrieve an instance by id
+     *
+     * @param id The id of the instance
+     * @return An observable
+     */
+    static Observable<D> get(Serializable id, @DelegatesTo(HttpClientRequestBuilder) Closure callable) {
+        (Observable<D>)currentRestStaticApi().get(id, [interceptor:createInterceptor(callable)])
+    }
+    /**
+     * Retrieve an instance by id
+     *
+     * @param id The id of the instance
+     * @return An observable
+     */
+    static Observable<D> get(Serializable id, Map arguments, @DelegatesTo(HttpClientRequestBuilder) Closure callable) {
+        arguments.interceptor = createInterceptor(callable)
+        (Observable<D>) currentRestStaticApi().get(id, arguments)
+    }
+
+    /**
+     * List all entities and return an observable
+     *
+     * @return An observable with all results
+     */
+    static Observable<List<D>> list(@DelegatesTo(HttpClientRequestBuilder) Closure callable) {
+        (Observable<List<D>>)currentRestStaticApi().list(interceptor:createInterceptor(callable))
+    }
+
+    /**
+     * Finds all entities and return an observable
+     *
+     * @return An observable with all results
+     */
+    static Observable<D> findAll( @DelegatesTo(HttpClientRequestBuilder) Closure callable ) {
+        (Observable<D>)currentRestStaticApi().findAll(interceptor:createInterceptor(callable))
+    }
+
+    /**
+     * Finds all entities and return an observable
+     *
+     * @return An observable with all results
+     */
+    static Observable<D> findAll(Map args,  @DelegatesTo(HttpClientRequestBuilder) Closure callable) {
+        args.interceptor = createInterceptor(callable)
+        currentRestStaticApi().findAll(args)
+    }
+
+    /**
+     * List all entities and return an observable
+     *
+     * @return An observable with all results
+     */
+    static Observable<List<D>> list(Map args, @DelegatesTo(HttpClientRequestBuilder) Closure callable) {
+        args.interceptor = createInterceptor(callable)
+        (Observable<List<D>>)currentRestStaticApi().list(args)
+    }
+
 
     /**
      *

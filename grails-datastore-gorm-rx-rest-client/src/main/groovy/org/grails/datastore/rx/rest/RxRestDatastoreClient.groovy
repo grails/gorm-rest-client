@@ -355,7 +355,7 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient<RxHttpClientBuilde
                 if(interceptorArgument instanceof RequestInterceptor) {
                     postObservable = ((RequestInterceptor)interceptorArgument).intercept(restEndpointPersistentEntity, (RxEntity)object, postObservable)
                 }
-                postObservable.writeContent(
+                postObservable = postObservable.writeContent(
                     createContentWriteObservable(restEndpointPersistentEntity, codec, entityOp)
                 )
                 postObservable = postObservable.map { HttpClientResponse response ->
@@ -400,10 +400,10 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient<RxHttpClientBuilde
                     requestObservable = ((RequestInterceptor)interceptorArgument).intercept(restEndpointPersistentEntity, (RxEntity)object, requestObservable)
                 }
 
-                requestObservable.writeContent(
+                Observable finalObservable = requestObservable.writeContent(
                     createContentWriteObservable(restEndpointPersistentEntity, codec, entityOp)
                 )
-                Observable finalObservable = requestObservable.map { HttpClientResponse response ->
+                finalObservable = finalObservable.map { HttpClientResponse response ->
                     return new ResponseAndEntity(uri, response, entity, object, codec)
                 }
                 observables.add(finalObservable)
@@ -571,7 +571,6 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient<RxHttpClientBuilde
                 subscriber.onError(e)
             }
             finally {
-                byteBuf.release()
                 subscriber.onCompleted()
             }
 

@@ -32,4 +32,6 @@ class RxRestGormStaticApi<D> extends RxGormStaticApi<D> {
     RestDetachedCriteria<D> whereAny(Closure callable) {
         (RestDetachedCriteria<D>)new RestDetachedCriteria<D>(persistentClass).or(callable)
     }
+
+
 }
