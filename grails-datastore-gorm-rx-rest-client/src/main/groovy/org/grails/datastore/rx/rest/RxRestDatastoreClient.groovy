@@ -3,6 +3,7 @@ package org.grails.datastore.rx.rest
 import com.damnhandy.uri.template.UriTemplate
 import grails.gorm.rx.RxEntity
 import grails.gorm.rx.rest.interceptor.RequestInterceptor
+import grails.http.HttpMethod
 import grails.http.MediaType
 import grails.http.client.RxHttpClientBuilder
 import grails.http.client.cfg.DefaultConfiguration
@@ -161,6 +162,11 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient<RxHttpClientBuilde
      */
     final Class<? extends SimpleRxRestQuery> queryType
 
+    /**
+     * The default method to use for updates. Defaults to PUT
+     */
+    final HttpMethod defaultUpdateMethod
+
     protected final boolean allowBlockingOperations
 
 
@@ -175,6 +181,7 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient<RxHttpClientBuilde
         this.queryType = (configuration.getProperty(SETTING_QUERY_TYPE, String, "simple") == "bson") ? BsonRxRestQuery : SimpleRxRestQuery
         this.readTimeout = configuration.getProperty(SETTING_READ_TIMEOUT, Integer, -1)
         this.logLevel = configuration.getProperty(SETTING_LOG_LEVEL, LogLevel, null)
+        this.defaultUpdateMethod = configuration.getProperty(SETTING_UPDATE_METHOD, HttpMethod, HttpMethod.PUT)
         PoolConfigBuilder poolConfigBuilder = new PoolConfigBuilder(configuration)
         PoolConfig pool = poolConfigBuilder.build()
 
@@ -347,22 +354,34 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient<RxHttpClientBuilde
                 def object = entityOp.object
                 String uri = expandUri(uriTemplate, entityReflector, object)
 
-                Observable putObservable = httpClient.createPut(uri)
-                putObservable = putObservable.setHeader( HttpHeaderNames.CONTENT_TYPE, contentType )
+                HttpClientRequest requestObservable
+                def methodArgument = operation.arguments.method
+                HttpMethod updateMethod =  methodArgument instanceof HttpMethod ? (HttpMethod)methodArgument : this.defaultUpdateMethod
+                switch(updateMethod) {
+                    case HttpMethod.PATCH:
+                        requestObservable = httpClient.createPatch(uri)
+                        break
+                    case HttpMethod.POST:
+                        requestObservable = httpClient.createPatch(uri)
+                        break
+                    default:
+                        requestObservable = httpClient.createPut(uri)
+                }
+                requestObservable = requestObservable.setHeader( HttpHeaderNames.CONTENT_TYPE, contentType )
                                              .setHeader( HttpHeaderNames.ACCEPT, contentType )
-                putObservable = prepareRequest(restEndpointPersistentEntity, putObservable, object)
+                requestObservable = prepareRequest(restEndpointPersistentEntity, requestObservable, object)
                 def interceptorArgument = operation.arguments.interceptor
                 if(interceptorArgument instanceof RequestInterceptor) {
-                    putObservable = ((RequestInterceptor)interceptorArgument).intercept(restEndpointPersistentEntity, (RxEntity)object, putObservable)
+                    requestObservable = ((RequestInterceptor)interceptorArgument).intercept(restEndpointPersistentEntity, (RxEntity)object, requestObservable)
                 }
 
-                putObservable.writeContent(
+                requestObservable.writeContent(
                     createContentWriteObservable(restEndpointPersistentEntity, codec, entityOp)
                 )
-                putObservable = putObservable.map { HttpClientResponse response ->
+                Observable finalObservable = requestObservable.map { HttpClientResponse response ->
                     return new ResponseAndEntity(uri, response, entity, object, codec)
                 }
-                observables.add(putObservable)
+                observables.add(finalObservable)
             }
         }
 

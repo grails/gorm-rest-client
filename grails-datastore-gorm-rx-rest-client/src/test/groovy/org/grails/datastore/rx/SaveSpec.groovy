@@ -110,4 +110,38 @@ class SaveSpec extends RxGormSpec {
         mock.verify()
         p.id == 1L
     }
+
+    void "Test updating an existing entity with the patch() method produces a PATCH request"() {
+        given:"A canned response"
+        def mock = client.expect {
+            uri '/people/1'
+            method HttpMethod.PATCH
+            json {
+                name "Fred"
+                age 10
+                dateOfBirth "2006-07-09T00:00+0000"
+            }
+        }
+        .respond {
+            ok()
+            json {
+                id 1
+                name "Fred"
+                age 10
+                dateOfBirth "2006-07-09T00:00+0000"
+            }
+        }
+
+        when:"A get request is issued"
+        def sw = new StringWriter()
+        def date = new Date().parse('yyyy/MM/dd', '1973/07/09')
+
+        Person p = new Person(name: "Fred", age: 10, dateOfBirth: date)
+        p.id = 1L
+        p = p.patch().toBlocking().first()
+
+        then:"The result is correct"
+        mock.verify()
+        p.id == 1L
+    }
 }

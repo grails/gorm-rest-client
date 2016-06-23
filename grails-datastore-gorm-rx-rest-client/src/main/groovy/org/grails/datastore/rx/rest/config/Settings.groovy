@@ -28,6 +28,11 @@ interface Settings {
      * The default wire log level
      */
     String SETTING_LOG_LEVEL        = "grails.gorm.rest.logLevel"
+
+    /**
+     * The default HTTP method to use for updates. Defaults to PUT
+     */
+    String SETTING_UPDATE_METHOD        = "grails.gorm.rest.updateMethod"
     /**
      * The configuration options to create the {@link io.reactivex.netty.client.pool.PoolConfig} with
      */
@@ -106,4 +111,14 @@ interface Settings {
      * The logLevel argument
      */
     String ARGUMENT_LOG_LEVEL       = "logLevel"
+
+    /**
+     * The interceptor argument
+     */
+    String ARGUMENT_INTERCEPTOR     = "interceptor"
+
+    /**
+     * The method argument
+     */
+    String ARGUMENT_METHOD          = "method"
 }

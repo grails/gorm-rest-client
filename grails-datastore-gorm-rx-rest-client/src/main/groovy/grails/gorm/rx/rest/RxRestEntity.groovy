@@ -4,12 +4,14 @@ import grails.gorm.rx.DetachedCriteria
 import grails.gorm.rx.RxEntity
 import grails.gorm.rx.rest.interceptor.ExistingClosureRequestBuilderInteceptor
 import grails.gorm.rx.rest.interceptor.RequestBuilderInterceptor
+import grails.http.HttpMethod
 import grails.http.client.builder.HttpClientRequestBuilder
 import groovy.transform.CompileStatic
 import io.reactivex.netty.protocol.http.client.HttpClientRequest
 import org.grails.datastore.gorm.schemaless.DynamicAttributes
 import org.grails.datastore.rx.rest.RestEndpointPersistentEntity
 import org.grails.datastore.rx.rest.api.RxRestGormStaticApi
+import org.grails.datastore.rx.rest.config.Settings
 import org.grails.gorm.rx.api.RxGormEnhancer
 import org.grails.gorm.rx.api.RxGormStaticApi
 import rx.Observable
@@ -90,6 +92,32 @@ trait RxRestEntity<D> implements RxEntity<D>, DynamicAttributes {
     Observable<D> save(@DelegatesTo(HttpClientRequestBuilder) Closure callable) {
         return RxEntity.super.save(interceptor: createInterceptor(callable))
     }
+
+    /**
+     * Save an entity using the given closure to customize the request
+     *
+     * @param callable The callable
+     * @return An observable
+     */
+    Observable<D> patch(@DelegatesTo(HttpClientRequestBuilder) Closure callable = null) {
+        return patch([:], callable)
+    }
+
+    /**
+     * Save an entity using the given closure to customize the request
+     *
+     * @param callable The callable
+     * @return An observable
+     */
+    Observable<D> patch(Map arguments, @DelegatesTo(HttpClientRequestBuilder) Closure callable = null) {
+        arguments = arguments == null ? [:] : arguments
+        arguments.put(Settings.ARGUMENT_METHOD, HttpMethod.PATCH)
+        if(callable != null) {
+            arguments.put(Settings.ARGUMENT_INTERCEPTOR, createInterceptor(callable))
+        }
+        return RxEntity.super.save(arguments)
+    }
+
     /**
      * Delete an entity using the given closure to customize the request
      *
@@ -117,7 +145,7 @@ trait RxRestEntity<D> implements RxEntity<D>, DynamicAttributes {
      * @param callable The callable
      * @return An observable
      */
-    Observable<D> insert(Map<String, Object> arguments, @DelegatesTo(HttpClientRequestBuilder) Closure callable) {
+    Observable<D> insert(Map arguments, @DelegatesTo(HttpClientRequestBuilder) Closure callable) {
         arguments.interceptor = createInterceptor(callable)
         return RxEntity.super.insert(arguments)
     }
@@ -128,7 +156,7 @@ trait RxRestEntity<D> implements RxEntity<D>, DynamicAttributes {
      * @param callable The callable
      * @return An observable
      */
-    Observable<D> save(Map<String, Object> arguments, @DelegatesTo(HttpClientRequestBuilder) Closure callable) {
+    Observable<D> save(Map arguments, @DelegatesTo(HttpClientRequestBuilder) Closure callable) {
         arguments.interceptor = createInterceptor(callable)
         return RxEntity.super.save(arguments)
 
@@ -140,7 +168,7 @@ trait RxRestEntity<D> implements RxEntity<D>, DynamicAttributes {
      * @param callable The callable
      * @return An observable
      */
-    Observable<Boolean> delete(Map<String, Object> arguments, @DelegatesTo(HttpClientRequestBuilder) Closure callable) {
+    Observable<Boolean> delete(Map arguments, @DelegatesTo(HttpClientRequestBuilder) Closure callable) {
         arguments.interceptor = createInterceptor(callable)
         return RxEntity.super.delete(arguments)
     }
