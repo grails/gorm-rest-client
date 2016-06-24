@@ -31,6 +31,25 @@ interface Settings {
     String SETTING_LOG_LEVEL        = "grails.gorm.rest.logLevel"
 
     /**
+     * The SSL session cache size
+     */
+    String SETTING_SSL_SESSION_CACHE_SIZE = "grails.gorm.rest.ssl.sessionCacheSize"
+
+    /**
+     * The SSL session timeout
+     */
+    String SETTING_SSL_SESSION_TIMEOUT = "grails.gorm.rest.ssl.sessionTimeout"
+
+    /**
+     * The SSL provider
+     */
+    String SETTING_SSL_PROVIDER = "grails.gorm.rest.ssl.provider"
+
+    /**
+     * The SSL TrustManagerFactory
+     */
+    String SETTING_SSL_TRUST_MANAGER_FACTORY = "grails.gorm.rest.ssl.trustManagerFactory"
+    /**
      * The default HTTP method to use for updates. Defaults to PUT
      */
     String SETTING_UPDATE_METHOD        = "grails.gorm.rest.updateMethod"

@@ -12,6 +12,7 @@ import grails.http.client.exceptions.HttpClientException
 import groovy.transform.CompileStatic
 import groovy.util.logging.Slf4j
 import io.netty.buffer.ByteBuf
+import io.netty.buffer.ByteBufAllocator
 import io.netty.buffer.ByteBufHolder
 import io.netty.buffer.ByteBufInputStream
 import io.netty.buffer.ByteBufOutputStream
@@ -20,6 +21,10 @@ import io.netty.handler.codec.base64.Base64
 import io.netty.handler.codec.http.HttpHeaderNames
 import io.netty.handler.codec.http.HttpResponseStatus
 import io.netty.handler.logging.LogLevel
+import io.netty.handler.ssl.SslContext
+import io.netty.handler.ssl.SslContextBuilder
+import io.netty.handler.ssl.SslProvider
+import io.netty.handler.ssl.util.InsecureTrustManagerFactory
 import io.reactivex.netty.client.ConnectionProviderFactory
 import io.reactivex.netty.client.Host
 import io.reactivex.netty.client.loadbalancer.LoadBalancerFactory
@@ -63,8 +68,11 @@ import org.springframework.core.env.PropertyResolver
 import org.springframework.validation.Errors
 import rx.Observable
 import rx.Subscriber
+import rx.functions.Func1
 import rx.functions.Func2
 
+import javax.net.ssl.SSLEngine
+import javax.net.ssl.TrustManagerFactory
 import java.nio.charset.Charset
 import java.text.SimpleDateFormat
 import java.util.concurrent.TimeUnit
@@ -173,6 +181,33 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient<RxHttpClientBuilde
      */
     final HttpMethod defaultUpdateMethod
 
+    /**
+     * Whether communication is over a security HTTPS connection
+     */
+    final boolean isSecure
+
+    /**
+     * The SSL provider
+     */
+    final SslProvider sslProvider
+
+    /**
+     * The default session cache size
+     */
+    final long sslSessionCacheSize
+
+    /**
+     * The SSL timeout period
+     */
+    final long sslSessionTimeout
+
+    /**
+     * The default trust manager factory
+     */
+    final TrustManagerFactory sslTrustManagerFactory
+
+    final SslContext sslContext
+
     protected final boolean allowBlockingOperations
 
 
@@ -182,6 +217,27 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient<RxHttpClientBuilde
         if(serverAddress.isEmpty()) {
             throw new IllegalArgumentException("At least 1 server address is required")
         }
+
+        List hosts = configuration.getProperty(SETTING_HOSTS, List, Collections.emptyList())
+
+        if(hosts.isEmpty()) {
+            String hostString = configuration.getProperty(SETTING_HOST, String.class, "http://localhost:8080")
+            this.isSecure = hostString.startsWith("https")
+        }
+        else {
+            this.isSecure = hosts.any { Object o -> o.toString().startsWith("https") }
+        }
+
+        this.sslProvider = configuration.getProperty(SETTING_SSL_PROVIDER, SslProvider, SslContext.defaultClientProvider())
+        this.sslSessionTimeout = configuration.getProperty(SETTING_SSL_SESSION_TIMEOUT, Long, -1L)
+        this.sslSessionCacheSize = configuration.getProperty(SETTING_SSL_SESSION_CACHE_SIZE, Long, -1L)
+        this.sslTrustManagerFactory = configuration.getProperty(SETTING_SSL_TRUST_MANAGER_FACTORY, TrustManagerFactory, InsecureTrustManagerFactory.INSTANCE)
+        this.sslContext = SslContextBuilder.forClient()
+                                            .sslProvider(sslProvider)
+                                            .sessionCacheSize(sslSessionCacheSize)
+                                            .sessionTimeout(sslSessionTimeout)
+                                            .trustManager(sslTrustManagerFactory)
+                                            .build()
 
         this.allowBlockingOperations = configuration.getProperty(SETTING_ALLOW_BLOCKING, Boolean, true)
         this.hosts = Observable.merge(serverAddress.collect() { SocketAddress address -> Observable.just(new Host(address))})
@@ -204,7 +260,11 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient<RxHttpClientBuilde
         }
         this.codecRegistry = mappingContext.codecRegistry
         def clientConfiguration = new DefaultConfiguration()
+
+        // TODO: populate other config
+        clientConfiguration.setReadTimeout(readTimeout)
         clientConfiguration.setEncoding(charset.toString())
+
         this.rxHttpClientBuilder = new RxHttpClientBuilder(connectionProviderFactory, clientConfiguration)
         interceptors.addAll(
                 ConfigurationUtils.findServices(configuration, SETTING_INTERCEPTORS, RequestInterceptor.class)
@@ -327,8 +387,20 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient<RxHttpClientBuilde
         else if(logLevel != null) {
             httpClient = httpClient.enableWireLogging(logLevel)
         }
-        return httpClient
 
+        if(isSecure) {
+            if(sslTrustManagerFactory == InsecureTrustManagerFactory.INSTANCE) {
+                return httpClient.unsafeSecure()
+            }
+            else {
+                return httpClient.secure( { ByteBufAllocator allocator ->
+                    return sslContext.newEngine(allocator)
+                } as Func1<ByteBufAllocator, SSLEngine>)
+            }
+        }
+        else {
+            return httpClient
+        }
     }
 
 
@@ -670,7 +742,8 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient<RxHttpClientBuilde
 
             try {
                 URI uri = new URI(hostString)
-                return [ new InetSocketAddress(uri.host, uri.port > -1 ? uri.port : 80) ] as List<SocketAddress>
+                int defaultPort = uri.scheme == 'https' ? 443 : 80
+                return [new InetSocketAddress(uri.host, uri.port > -1 ? uri.port : defaultPort) ] as List<SocketAddress>
             } catch (URISyntaxException e) {
                 throw new DatastoreConfigurationException("Invalid host configuration specified: $hostString")
             }
@@ -679,7 +752,8 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient<RxHttpClientBuilde
             return hosts.collect() { Object it ->
                 try {
                     URI uri = new URI(it.toString())
-                    return new InetSocketAddress(uri.host, uri.port > -1 ? uri.port : 80)
+                    int defaultPort = uri.scheme == 'https' ? 443 : 80
+                    return new InetSocketAddress(uri.host, uri.port > -1 ? uri.port : defaultPort)
                 } catch (URISyntaxException e) {
                     throw new DatastoreConfigurationException("Invalid host configuration specified: $it")
                 }
