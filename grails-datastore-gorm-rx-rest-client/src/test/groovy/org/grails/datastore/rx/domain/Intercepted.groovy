@@ -3,6 +3,7 @@ package org.grails.datastore.rx.domain
 import grails.gorm.annotation.Entity
 import grails.gorm.rx.RxEntity
 import grails.gorm.rx.rest.RxRestEntity
+import grails.gorm.rx.rest.interceptor.InterceptorContext
 import grails.gorm.rx.rest.interceptor.RequestBuilderInterceptor
 import io.reactivex.netty.protocol.http.client.HttpClientRequest
 import org.grails.datastore.rx.rest.RestEndpointPersistentEntity
@@ -22,7 +23,7 @@ class Intercepted implements RxRestEntity<Intercepted> {
 
 class MyInterceptor extends RequestBuilderInterceptor {
     @Override
-    Closure build(RestEndpointPersistentEntity entity, RxEntity instance, HttpClientRequest request) {
+    Closure build(HttpClientRequest request, InterceptorContext context) {
         buildRequest {
             header("One", "Two")
         }

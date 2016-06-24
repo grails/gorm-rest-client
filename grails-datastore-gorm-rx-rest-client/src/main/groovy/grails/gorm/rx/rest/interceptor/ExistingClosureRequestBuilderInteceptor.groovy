@@ -1,10 +1,8 @@
 package grails.gorm.rx.rest.interceptor
 
-import grails.gorm.rx.RxEntity
 import grails.http.client.builder.HttpClientRequestBuilder
 import groovy.transform.CompileStatic
 import io.reactivex.netty.protocol.http.client.HttpClientRequest
-import org.grails.datastore.rx.rest.RestEndpointPersistentEntity
 
 /**
  * Interceptor constructed from an existing closure
@@ -22,7 +20,7 @@ class ExistingClosureRequestBuilderInteceptor extends RequestBuilderInterceptor 
     }
 
     @Override
-    Closure build(RestEndpointPersistentEntity entity, RxEntity instance, HttpClientRequest request) {
+    Closure build(HttpClientRequest request, InterceptorContext context) {
         return callable
     }
 }

@@ -2,6 +2,7 @@ package org.grails.datastore.rx.rest
 
 import com.damnhandy.uri.template.UriTemplate
 import grails.gorm.rx.RxEntity
+import grails.gorm.rx.rest.interceptor.InterceptorContext
 import grails.gorm.rx.rest.interceptor.RequestInterceptor
 import grails.http.HttpMethod
 import grails.http.MediaType
@@ -352,11 +353,14 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient<RxHttpClientBuilde
                 Observable postObservable = httpClient.createPost(uri)
                 postObservable = postObservable.setHeader( HttpHeaderNames.CONTENT_TYPE, contentType )
                                                .setHeader( HttpHeaderNames.ACCEPT, contentType)
-                postObservable = prepareRequest(restEndpointPersistentEntity, postObservable, object)
+
+                InterceptorContext context = new InterceptorContext(restEndpointPersistentEntity, (RxEntity)object)
+
+                postObservable = prepareRequest( postObservable, context )
 
                 def interceptorArgument = operationArguments.interceptor
                 if(interceptorArgument instanceof RequestInterceptor) {
-                    postObservable = ((RequestInterceptor)interceptorArgument).intercept(restEndpointPersistentEntity, (RxEntity)object, postObservable)
+                    postObservable = ((RequestInterceptor)interceptorArgument).intercept(postObservable, context)
                 }
                 if(postObservable instanceof HttpClientRequest) {
                     postObservable = ((HttpClientRequest)postObservable).writeContent(
@@ -399,12 +403,15 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient<RxHttpClientBuilde
                 }
                 requestObservable = requestObservable.setHeader( HttpHeaderNames.CONTENT_TYPE, contentType )
                                                      .setHeader( HttpHeaderNames.ACCEPT, contentType )
-                Observable<HttpClientResponse> preparedObservable = prepareRequest(restEndpointPersistentEntity, requestObservable, object)
+
+                InterceptorContext context = new InterceptorContext(restEndpointPersistentEntity, (RxEntity)object)
+
+                Observable<HttpClientResponse> preparedObservable = prepareRequest(requestObservable, context)
                 Observable finalObservable = preparedObservable
 
                 def interceptorArgument = operationArguments.interceptor
                 if(interceptorArgument instanceof RequestInterceptor) {
-                    finalObservable = ((RequestInterceptor)interceptorArgument).intercept(restEndpointPersistentEntity, (RxEntity)object, preparedObservable)
+                    finalObservable = ((RequestInterceptor)interceptorArgument).intercept(preparedObservable, context)
                 }
 
                 if(finalObservable instanceof HttpClientRequest) {
@@ -687,7 +694,7 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient<RxHttpClientBuilde
         return mappingContext
     }
 
-    Observable<HttpClientResponse> prepareRequest(RestEndpointPersistentEntity restEndpointPersistentEntity, HttpClientRequest<ByteBuf, ByteBuf> httpClientRequest, Object instance = null) {
+    Observable<HttpClientResponse> prepareRequest(HttpClientRequest<ByteBuf, ByteBuf> httpClientRequest, InterceptorContext context) {
         Observable<HttpClientResponse> finalRequest = httpClientRequest
         if (username != null && password != null) {
             String usernameAndPassword = "$username:$password"
@@ -696,10 +703,10 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient<RxHttpClientBuilde
         }
 
         for(RequestInterceptor i in interceptors) {
-            finalRequest = i.intercept(restEndpointPersistentEntity, (RxEntity)instance, finalRequest)
+            finalRequest = i.intercept(finalRequest, context)
         }
-        for(RequestInterceptor i in restEndpointPersistentEntity.interceptors) {
-            finalRequest = i.intercept(restEndpointPersistentEntity, (RxEntity)instance, finalRequest)
+        for(RequestInterceptor i in context.entity.interceptors) {
+            finalRequest = i.intercept(finalRequest, context)
         }
         return finalRequest
     }

@@ -1,6 +1,8 @@
 package org.grails.datastore.rx.rest.query
 
 import com.damnhandy.uri.template.UriTemplate
+import grails.gorm.rx.RxEntity
+import grails.gorm.rx.rest.interceptor.InterceptorContext
 import grails.gorm.rx.rest.interceptor.RequestInterceptor
 import grails.http.MediaType
 import grails.http.client.exceptions.HttpClientException
@@ -124,14 +126,14 @@ class SimpleRxRestQuery<T> extends Query implements RxQuery<T> {
 
         HttpClientRequest httpClientRequest = httpClient.createGet(uri)
         httpClientRequest = httpClientRequest.setHeader(HttpHeaderNames.ACCEPT, contentType.toString())
-
-        Observable<HttpClientResponse> finalRequest = datastoreClient.prepareRequest(restEndpointPersistentEntity, httpClientRequest)
+        InterceptorContext context = new InterceptorContext(restEndpointPersistentEntity)
+        Observable<HttpClientResponse> finalRequest = datastoreClient.prepareRequest(httpClientRequest, context)
 
 
         def interceptorArgument = queryArguments.interceptor
 
         if(interceptorArgument instanceof RequestInterceptor) {
-            finalRequest = ((RequestInterceptor)interceptorArgument).intercept(restEndpointPersistentEntity, null, finalRequest)
+            finalRequest = ((RequestInterceptor)interceptorArgument).intercept(finalRequest, context)
         }
 
         finalRequest

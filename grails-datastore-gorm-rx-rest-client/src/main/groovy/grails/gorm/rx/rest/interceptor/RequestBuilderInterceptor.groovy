@@ -17,13 +17,13 @@ import rx.Observable
 abstract class RequestBuilderInterceptor implements RequestInterceptor {
 
     @Override
-    final Observable<HttpClientResponse> intercept(RestEndpointPersistentEntity entity, RxEntity instance, Observable<HttpClientResponse> request) {
+    final Observable<HttpClientResponse> intercept(Observable<HttpClientResponse> request, InterceptorContext context) {
         if( !(request instanceof HttpClientRequest) ) {
-            throw new IllegalStateException("Response cannot be written to from within an interceptor")
+            throw new IllegalStateException("Request cannot be written to from within an interceptor")
         }
-        def builder = new HttpClientRequestBuilder((HttpClientRequest)request, entity.charset)
+        def builder = new HttpClientRequestBuilder((HttpClientRequest)request, context.entity.charset)
 
-        def callable = build(entity, instance, request)
+        def callable = build(request, context)
         callable.setDelegate(builder)
         callable.call()
         return builder.request
@@ -38,7 +38,7 @@ abstract class RequestBuilderInterceptor implements RequestInterceptor {
      *
      * @return The closure the performs the building
      */
-    abstract Closure build(RestEndpointPersistentEntity entity, RxEntity instance, HttpClientRequest request)
+    abstract Closure build(HttpClientRequest request, InterceptorContext context )
 
     protected Closure buildRequest(@DelegatesTo(HttpClientRequestBuilder) Closure callable) {
         return callable

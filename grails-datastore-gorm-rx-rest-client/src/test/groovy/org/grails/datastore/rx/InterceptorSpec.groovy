@@ -2,6 +2,7 @@ package org.grails.datastore.rx
 
 import grails.gorm.rx.RxEntity
 import grails.gorm.rx.rest.RestDetachedCriteria
+import grails.gorm.rx.rest.interceptor.InterceptorContext
 import grails.gorm.rx.rest.interceptor.RequestBuilderInterceptor
 import grails.http.HttpMethod
 import grails.http.MediaType
@@ -120,7 +121,7 @@ class InterceptorSpec extends RxGormSpec {
 
 class TestInterceptor extends RequestBuilderInterceptor {
     @Override
-    Closure build(RestEndpointPersistentEntity entity, RxEntity instance, HttpClientRequest request) {
+    Closure build(HttpClientRequest request, InterceptorContext context) {
         buildRequest {
             header("Foo", "Bar")
         }
