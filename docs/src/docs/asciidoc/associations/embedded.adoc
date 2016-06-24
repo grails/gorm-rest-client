@@ -1,0 +1,29 @@
+Embedded associations are supported for both entity and collection types. Simply declare the assocation as `embedded`:
+
+[source,groovy]
+----
+package example
+
+import grails.gorm.rx.rest.*
+
+class Book implements RxRestEntity<Book> {
+    String title
+
+    Author author
+    List<Author> otherAuthors
+
+    static embedded = ['author', 'otherAuthors']
+}
+
+class Author implements RxRestEntity<Author> {
+    String name
+}
+----
+
+When JSON is sent back from the server the embedded association will be decoded from the JSON:
+
+
+[source,json]
+----
+{"title":"The Stand", "author":{"name":"Stephen King"}}
+----

@@ -1,0 +1,68 @@
+As mentioned previously, URIs are specified using the https://tools.ietf.org/html/rfc6570[RFC 6570 URI Template] syntax. A URI template can contain any properties of a domain class. For example consider the following domain class:
+
+[source,groovy]
+----
+package example
+
+import grails.gorm.rx.rest.*
+
+class Book implements RxRestEntity<Book> {
+    String title
+    String author
+
+    static mapping = {
+        id name:"title"
+        uri "/authors/{author}/books{/title}"
+    }
+}
+----
+
+In this example when saving the entity:
+
+[source,groovy]
+----
+new Book(title:"It", author:"Stephen King").save()
+----
+
+A `PUT` request will be issued to the URI `/authors/Stephen%20King/books/It` as the properties of the domain are expanded into the URI template. To issue a `POST` request you can do:
+
+[source,groovy]
+----
+new Book(title:"It", author:"Stephen King").insert()
+----
+
+A `POST` request will be sent to the URI `/authors/Stephen%20King/books` or you can choose whichever method you prefer to use with:
+
+
+[source,groovy]
+----
+import static grails.http.HttpMethod.*
+
+new Book(title:"It", author:"Stephen King").save(method:PATCH)
+----
+
+To perform a query you can do the following:
+
+[source,groovy]
+----
+Observable<Book> observable = Book.find {
+    title == "It" && author == "Stephen King"
+}
+----
+
+And a `GET` request will be issued to `/authors/Stephen%20King/books/It`.
+
+If you wish to alter the URI template for only a single write operation or query you can do so by passing the `uri` argument:
+
+
+[source,groovy]
+----
+// write operation
+new Book(title:"It", author:"Stephen King").insert(uri:"/authors/{author}/books{/title}")
+
+// query
+Observable<Book> observable = Book.where {
+    title == "It" && author == "Stephen King"
+}.find(uri:"/authors/{author}/books{/title}")
+----
+

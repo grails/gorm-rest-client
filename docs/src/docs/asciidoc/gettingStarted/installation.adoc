@@ -1,4 +1,4 @@
-RxGORM for REST is designed to very lightweight, and so can be used in a number of scenarios either standalone or within Grails application.
+RxGORM for REST is designed to be very lightweight, and so can be used in a number of scenarios either standalone or within a Grails application.
 
 [[withGrails]]
 ==== Installation with Grails

@@ -1,0 +1,144 @@
+Single-ended associations can be represented by simply declaring the associated type as a property of the domain class:
+
+
+[source,groovy]
+----
+package example
+
+import grails.gorm.rx.rest.*
+
+class Book implements RxRestEntity<Book> {
+    String title
+
+    Author author
+}
+
+class Author implements RxRestEntity<Author> {
+    String name
+}
+----
+
+When a JSON response is returned that contains only the association id then an link:../api/grails/gorm/rx/proxy/ObservableProxy.html[ObservableProxy] is returned. For example given the following JSON response:
+
+[source,json]
+----
+{"title":"The Stand", "author":1}
+----
+
+An `ObservableProxy` that executes a GET request to the `/author/1` URI will be returned. This allows you to subscribe the association in order to read it lazily:
+
+[source,groovy]
+----
+Book.get(1).subscribe { Book book ->
+    book.author.subscribe { Author author ->
+        println "got author $author.name"
+    }
+}
+----
+
+If you wish to load both the `Book` and the `Author` there are a couple of ways to achieve that. One way is to use the `switchMap` and `zip` methods to load both in a non-blocking manner:
+
+[source,groovy]
+----
+Book.get(1).switchMap { Book book ->
+    Observable.zip( Observable.just(book), book.author.toObservable()) { Book b1, Author author ->
+        return [b1, author]
+    }
+}
+----
+
+Alternatively a much simpler way is to use an eager query:
+
+[source,groovy]
+----
+Book.get(1, [fetch:[author:'eager']).subscribe { Book book ->
+    println "Title $book.title"
+    println "Author $book.author.name"
+}
+----
+
+Conversely if the JSON returned from the server includes the `author` embedded within the JSON, then no `ObservableProxy` will be created and instead the association will be loaded fully initialized. For example the following JSON will produce an initialized entity:
+
+
+[source,json]
+----
+{"title":"The Stand", "author":{"id":1, "name":"Stephen King"}}
+----
+
+Or if you are using HAL the following JSON will also work:
+
+
+[source,json]
+----
+{"_embedded":{"author":{"id":1, "name":"Stephen King"}},"title":"The Stand"}
+----
+
+You can alter the <<uriTemplates,URI Template>> used by RxGORM to load the association using the `mapping` block:
+
+
+[source,groovy]
+----
+package example
+
+import grails.gorm.rx.rest.*
+
+class Book implements RxRestEntity<Book> {
+    String title
+
+    Author author
+
+    static mapping = {
+        author uri:'/authors/{name}'
+    }
+}
+----
+
+In the above case the `name` property of the `Author` will be used to load the association instead. You can also override the URI used to load an association from the server by sending back HAL links:
+
+[source,json]
+----
+{"_links":{"author":{"href":"/authors/{name}"},"title":"The Stand"}
+----
+
+In this case RxGORM will create an `ObservableProxy` to load the author from the `/author/{name}` URI template.
+
+If you define a single-ended association using the `hasOne` syntax then the foreign key is assumed to always exist on the inverse side of the association:
+
+[source,groovy]
+----
+package example
+
+import grails.gorm.rx.rest.*
+
+class Book implements RxRestEntity<Book> {
+    String title
+
+    static hasOne = [author:Author]
+}
+
+class Author implements RxRestEntity<Author> {
+    String name
+    static belongsTo = [book:Book]
+}
+----
+
+In this case by default a URI template of `/book/{book}/author` will be created as it is assumed that the `/book` resource wholly owns the `author` and therefore it is nested within it. You can alter how the URI maps using the `mapping` block:
+
+[source,groovy]
+----
+package example
+
+import grails.gorm.rx.rest.*
+
+class Book implements RxRestEntity<Book> {
+    String title
+
+    static hasOne = [author:Author]
+
+    static mapping = {
+        author '/books/{book}/info/author'
+    }
+}
+----
+
+TIP: Within the <<uriTemplates,URI Template>> for the association you can include any properties of the `Book` class.

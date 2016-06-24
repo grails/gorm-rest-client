@@ -1,0 +1,19 @@
+You can perform multiple HTTP write operations (`POST` or `DELETE` etc.) by using either the `saveAll` or `deleteAll` methods:
+
+
+[source,groovy]
+----
+// multiple POST operations
+Observable observable = Book.saveAll(
+    new Book(title:"The Stand"),
+    new Book(title:"The Shining")
+)
+
+// multiple DELETE operations
+Observable observable = Book.deleteAll(
+    book1,
+    book2
+)
+----
+
+These methods will return an `Observable` that only completes when all the operations have been successful.

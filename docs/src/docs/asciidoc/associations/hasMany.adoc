@@ -1,0 +1,54 @@
+Only bidirectional many ended associations are supported. To define an association you can use the `hasMany` syntax:
+
+[source,groovy]
+----
+package example
+
+import grails.gorm.rx.rest.*
+
+class Book implements RxRestEntity<Book> {
+    String title
+
+    static hasMany = [authors:Author]
+}
+
+class Author implements RxRestEntity<Author> {
+    String name
+    static belongsTo = [book:Book]
+}
+----
+
+In this case by default a <<uriTemplates,URI template>> of `/book/{book}/authors` will be created as it is assumed that the `/book` resource wholly owns the `authors` and therefore it is nested within it. You can alter how the URI maps using the `mapping` block:
+
+
+[source,groovy]
+----
+package example
+
+import grails.gorm.rx.rest.*
+
+class Book implements RxRestEntity<Book> {
+    String title
+
+    static hasMany = [authors:Author]
+
+    static mapping = {
+        authors '/books/{book}/info/authors'
+    }
+}
+----
+
+TIP: Within the <<uriTemplates,URI Template>> for the association you can include any properties of the `Book` class.
+
+
+When an entity is retrieved all many ended associations are lazy by default and return an instance of link:../api/grails/gorm/rx/collection/RxPersistentCollection.html[RxPersistentCollection] which allows you to subscribe to the collection to load it in a non-blocking manner:
+
+
+[source,groovy]
+----
+Book.get(1).subscribe { Book book ->
+    book.authors.subscribe { Author author ->
+        println "got author $author.name"
+    }
+}
+----

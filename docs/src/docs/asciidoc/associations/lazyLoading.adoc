@@ -1,0 +1,64 @@
+As mentioned previously you can retrieve any lazy association using an eager query:
+
+[source,groovy]
+----
+// query by id
+Book.get(1, [fetch:[authors:'eager']).subscribe { Book book ->
+    println "Title $book.title"
+    println "Authors $book.authors"
+}
+
+// query an alternative URI
+Book.where {
+    title == "The Stand"
+}.find(uri:'/books/byTitle/{title}', fetch:[authors:'eager'])
+ .subscribe { Book book ->
+      println "Title $book.title"
+      println "Authors $book.authors"
+}
+----
+
+You can however also configure an association to be eager by default:
+
+[source,groovy]
+----
+package example
+
+import grails.gorm.rx.rest.*
+
+class Book implements RxRestEntity<Book> {
+    String title
+
+    static hasMany = [authors:Author]
+
+    static mapping = {
+        authors fetch:"eager"
+    }
+}
+----
+
+Additionally, if the server sends back the association embedded within the JSON then no lazy loading is necessary.
+
+Finally, some REST APIs support the notion of "resource expansion", for example Grails' http://views.grails.org/1.1.x/#_rendering_domain_classes[JSON views] support an `expand` request parameter. You can send the `expand` parameter to the server using the `expand` argument to any query:
+
+[source,groovy]
+----
+// query by id
+Book.get(1, [expand:'authors']).subscribe { Book book ->
+    println "Title $book.title"
+    println "Authors $book.authors"
+}
+
+// query an alternative URI
+Book.where {
+    title == "The Stand"
+}.find(uri:'/books/byTitle/{title}',[expand:'authors'])
+ .subscribe { Book book ->
+      println "Title $book.title"
+      println "Authors $book.authors"
+}
+----
+
+In this example a parameter called `expand` will be appended to the request URI in the form `?expand=authors`. If you which to expand multiple associations then multiple parameters will be added, for example `?expand=authors&expand=publisher`
+
+TIP: By default the name of the `expand` parameter is `expand` but you can change this by setting `grails.gorm.rest.parameters.expand` in `application.yml`

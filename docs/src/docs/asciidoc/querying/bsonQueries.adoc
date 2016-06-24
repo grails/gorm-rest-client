@@ -1,0 +1,46 @@
+When using the URI, only "equals" style queries are supported and other conditional operators (greater than, less than etc.) are not supported.
+
+If you are implementing a search endpoint you may need more richness in the querying ability. One option to implement this is to use a MongoDB-style BSON query.
+
+For example:
+
+[source,groovy]
+----
+Book.where {
+    author == "Stephen King" && pages > 500
+}.findAll(queryType:"bson", uri:"/books/search")
+----
+
+This will produce a query to the URI `/books/search` passing a parameter called `q` with the following URL encoded JSON:
+
+[source,json]
+----
+{"author:"Stephen King", "pages":{"$gt":500}}
+----
+
+If you are using MongoDB on the server you can use this to perform a query:
+
+[source,groovy]
+----
+import org.bson.*
+
+def search(String q) {
+    Document query = Document.parse(params.q)
+    respond Book.collection.find(q)
+}
+----
+
+If you are not using MongoDB on the server you can use the `org.grails.datastore.bson.query.BsonQuery` class to parse the query into `DetachedCriteria` instance:
+
+[source,groovy]
+----
+import org.grails.datastore.bson.query.*
+
+def search(String q) {
+    DetachedCriteria<Book> criteria = BsonQuery.parse(Book, new BsonReader(new JsonReader(params.q)))
+    respond criteria.list()
+}
+----
+
+
+All https://docs.mongodb.com/manual/reference/operator/query/[comparison and logical operators from MongoDB] are supported.

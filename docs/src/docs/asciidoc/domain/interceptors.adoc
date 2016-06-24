@@ -1,0 +1,40 @@
+As an alternative to passing `Closure` to each invocation you can register link:../api/grails/gorm/rx/rest/interceptor/RequestInterceptor.html[RequestInterceptor] instances. For example:
+
+[source,groovy]
+----
+package example
+
+import grails.gorm.rx.rest.interceptor.*
+
+class AuthInterceptor extends RequestBuilderInterceptor {
+    @Override
+    Closure build(RestEndpointPersistentEntity entity, RxEntity instance, HttpClientRequest request) {
+        buildRequest {
+            auth System.getenv('SERVICE_USERNAME'), System.getenv('SERVICE_PASSWORD')
+        }
+    }
+}
+----
+
+The interceptor can then either be passed as an argument to write operation or query:
+
+[source,groovy]
+----
+// write operation with interceptor
+book.save(interceptor: new AuthInterceptor())
+
+// query with interceptor
+Observable<Book> o = Book.get(1L, [interceptor: new AuthInterceptor()])
+----
+
+Or you can register an interceptor globally by defining the `grails.gorm.rest.interceptors` in `grails-app/conf/application.yml`:
+
+[source,yaml]
+----
+grails:
+    gorm:
+        rest:
+            interceptors: example.AuthInterceptor
+----
+
+Or alternatively you can create a `META-INF/services/grails.gorm.rx.rest.interceptor.RequestInterceptor` file containing the class name of the `RequestInterceptor` and it will be picked up automatically.

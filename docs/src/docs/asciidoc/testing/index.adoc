@@ -1,0 +1,115 @@
+RxGORM for REST is designed to be very lightweight, so it is easy to spin up in a unit test. A specialized `org.grails.datastore.rx.rest.test.TestRxRestDatastoreClient` class exists to help make testing even easier.
+
+To use the `TestRxRestDatastoreClient` in Spock add a field to your Spock specification declared with `AutoCleanup`:
+
+
+[source,groovy]
+----
+import spock.lang.*
+import org.grails.datastore.rx.rest.test.TestRxRestDatastoreClient
+
+class BookSpec extends Specification {
+    @AutoCleanup TestRxRestDatastoreClient client
+
+     void setup() {
+        client = new TestRxRestDatastoreClient(Book)
+     }
+}
+----
+
+The `TestRxRestDatastoreClient` class with create a test HTTP server running on an ephemeral port.
+
+You can then use the test client to create expectations within your test methods:
+
+[source,groovy]
+----
+import static grails.http.MediaType.*
+...
+
+given:"A Test Client"
+def mock = client.expect { <1>
+    uri '/book/1' <2>
+    accept(JSON) <3>
+}
+.respond { <4>
+    json { <5>
+        id 1
+        title "The Stand"
+    }
+}
+----
+
+<1> Use the `expect` method to define expectations for the request
+<2> Here we specify that a `uri` of `/book/1/` is expected
+<3> An HTTP `Accept` header containing `application/json` is expected
+<4> Here we define the mocked response from the server using the `respond` method
+<5> The `respond` method defines the JSON using `StreamingJsonBuilder`
+
+Then you can simply use the regular RxGORM API:
+
+[source,groovy]
+----
+when:"A get request is issued"
+Observable<Book> observable = Book.get(1)
+Book book = observable.toBlocking().first()
+----
+
+And finally verify the expectations:
+
+[source,groovy]
+----
+then:"The response is correct"
+mock.verify()
+book.title == "The Stand"
+----
+
+For testing JSON requests and responses the `toJson` method can come in handy. For example to test a `POST` request you can use an existing instance as test data:
+
+[source,groovy]
+----
+import static grails.http.MediaType.*
+import static grails.http.HttpMethod.*
+...
+
+...
+
+given:"A POST request"
+Book book = new Book(title:"The Stand") <1>
+def mock = client.expect {
+    uri '/book' <2>
+    method POST <3>
+    json book.toJson() <4>
+}
+.respond {
+    created() <5>
+    json { <6>
+        id 1
+    }
+}
+----
+
+<1> Create a test instance
+<2> Verify the `uri` is `/book`
+<3> Verify the HTTP method is `POST`
+<4> Verify the JSON sent to the server is the same as the JSON produced from converting the `Book`
+<5> Respond with an HTTP 201 status of `CREATED`
+<6> Send the `id` back as JSON
+
+Then perform a `POST`:
+
+[source,groovy]
+----
+when:"A get request is issued"
+Observable<Book> observable = new Book(title:"The Stand").save()
+Book book = observable.toBlocking().first()
+----
+
+And then verify the expectations:
+
+[source,groovy]
+----
+then:"The response is correct"
+mock.verify()
+book.id == 1L
+book.title == "The Stand"
+----

@@ -1,0 +1,1 @@
+RxGORM for REST supports defining associations between REST endpoints and adds some additional integration with https://tools.ietf.org/html/draft-kelly-json-hal-08[HAL (Hypertext Application Language)] to automatically interpret the HAL `_embedded` and `_links` attributes.

@@ -1,4 +1,4 @@
-If you which to use client side load balancing between multiple servers you can use the `grails.gorm.rest.hosts` option and specify multiple server hosts:
+If you wish to use client side load balancing between multiple servers you can use the `grails.gorm.rest.hosts` option and specify multiple server hosts:
 
 [source,yaml]
 ----

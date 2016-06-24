@@ -1,0 +1,30 @@
+Each method that issues an HTTP request also accepts a `Closure` which delegates to the link:../api/grails/http/client/builder/HttpClientRequestBuilder.html[HttpClientRequestBuilder] class and allows customization of the outgoing request. For example:
+
+[source,groovy]
+----
+import static grails.http.HttpHeader.*
+
+Observable<Book> observable = new Book(title: "The Stand").save {
+    header ACCEPT_CHARSET, "UTF-8"
+}
+----
+
+The above example adds an additional `ACCEPT_CHARSET` header to the request. The same same technique can be used with static methods:
+
+[source,groovy]
+----
+import static grails.http.HttpHeader.*
+
+Observable<Book> observable = Book.get(1) {
+    header ACCEPT_VERSION, "v1.0.0"
+}
+----
+
+Another common use case is to add `BASIC` auth credentials:
+
+[source,groovy]
+----
+Observable<Book> observable = Book.get(1) {
+    auth "myusername", "mypassword"
+}
+----

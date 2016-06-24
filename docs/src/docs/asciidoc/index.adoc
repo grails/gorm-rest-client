@@ -44,10 +44,20 @@ include::configuration/loadBalanced.adoc[]
 
 include::domain/index.adoc[]
 
+[[customTypes]]
+=== Custom Types
+
+include::domain/customTypes.adoc[]
+
 [[identity]]
 === Identity Generation
 
 include::domain/identity.adoc[]
+
+[[uriTemplates]]
+=== URI Templates
+
+include::domain/uriTemplates.adoc[]
 
 [[converting]]
 === Converting to and from JSON
@@ -74,10 +84,6 @@ include::domain/interceptors.adoc[]
 
 include::domain/batchWrites.adoc[]
 
-[[customTypes]]
-=== Custom Types
-
-include::domain/customTypes.adoc[]
 
 
 [[associations]]
@@ -110,15 +116,14 @@ include::associations/lazyLoading.adoc[]
 
 include::querying/index.adoc[]
 
-[[joins]]
-=== Join Queries
-
-include::querying/joinQueries.adoc[]
-
 [[bsonQueries]]
 === MongoDB-style Queries
 
 include::querying/bsonQueries.adoc[]
+
+[[testing]]
+== Testing
+include::testing/index.adoc[]
 
 [[reference]]
 == Reference

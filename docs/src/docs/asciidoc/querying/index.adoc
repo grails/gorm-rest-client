@@ -1,0 +1,74 @@
+Generally in REST applications the URI is the query. So to formulate queries the most typically pattern is pass the `uri` argument to the query.
+
+For example say we you want to add a query to obtain the latests books. That can be done quite simply by altering the URI passed to the `findAll` method:
+
+[source,groovy]
+----
+package example
+
+import grails.gorm.rx.rest.*
+
+class Book implements RxRestEntity<Book> {
+    String title
+
+
+    static Observable<Book> latestBooks(Map arguments = [:]) {
+        arguments.uri = "/books/latest"
+        return findAll(uri)
+    }
+}
+
+...
+Book.latestBooks().subscribe { Book book ->
+    println "Title $book.title"
+}
+----
+
+If the REST endpoint is parameterized you can use <<uriTemplates, URI Templates>> to define the query:
+
+[source,groovy]
+----
+package example
+
+import grails.gorm.rx.rest.*
+
+class Book implements RxRestEntity<Book> {
+    String title
+
+
+    static Observable<Book> latestBooks(String category, Map arguments = [:]) {
+        arguments.uri = "/books/{category}/latest"
+        return where {
+            eq 'category', category
+        }.findAll(arguments)
+    }
+}
+
+...
+Book.latestBooks("Fiction").subscribe { Book book ->
+    println "Title $book.title"
+}
+----
+
+In the above example a `GET` request to `/books/Fiction/latest` will be produced. You can include any additional parameters not declared in the URI template, for example:
+
+[source,groovy]
+----
+Book.where {
+    eq 'category', 'Fiction'
+    eq 'foo', 'bar'
+}.findAll(uri:"/books/{category}/latest")
+----
+
+The above example will produce a `GET` request to `/books/Fiction/latest?foo=bar`.
+
+You can also control pagination and sorting. For example:
+
+[source,groovy]
+----
+Book.findAll(max:10, offset:10, sort:"title", order:"desc")
+----
+
+Results in a query such as `/books?max=10&offset=10&sort=title&order=desc`.
+
+TIP: The names of the pagination paremeters are configurable. See the <<configOptions,Configuration Options>> section for more information.

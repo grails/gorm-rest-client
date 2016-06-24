@@ -1,0 +1,33 @@
+You can convert any domain instance to a JSON string with to `toJson()` method:
+
+[source,groovy]
+----
+Book book = new Book(title:"The Stand")
+println book.toJson()
+----
+
+You can also pass a `java.io.Writer` to the method if you wish to write the JSON to a specify target writer:
+
+[source,groovy]
+----
+Book book = new Book(title:"The Stand")
+StringWriter writer = new StringWriter()
+book.toJson(writer)
+println writer.toString()
+----
+
+You can read an instance from JSON using the `fromJson` static method:
+
+[source,groovy]
+----
+String json = ...
+Book book = Book.fromJson(json)
+----
+
+A variation of the method accepts a `java.io.Reader` to read JSON from an alternate source:
+
+[source,groovy]
+----
+Reader jsonReader = ...
+Book book = Book.fromJson(jsonReader)
+----
