@@ -11,6 +11,9 @@ import org.grails.datastore.mapping.model.MappingFactory
  */
 @CompileStatic
 class RestClientMappingFactory extends AbstractGormMappingFactory<Endpoint, Attribute> {
+
+    final Set<Class> additionalSimpleTypes = []
+
     @Override
     protected Class<Attribute> getPropertyMappedFormType() {
         return Attribute
@@ -19,5 +22,14 @@ class RestClientMappingFactory extends AbstractGormMappingFactory<Endpoint, Attr
     @Override
     protected Class<Endpoint> getEntityMappedFormType() {
         return Endpoint
+    }
+
+    @Override
+    boolean isSimpleType(Class propType) {
+        return additionalSimpleTypes.contains(propType) || super.isSimpleType(propType)
+    }
+
+    void addSimpleType(Class type) {
+        additionalSimpleTypes.add(type)
     }
 }

@@ -55,6 +55,11 @@ interface Settings {
      * The {@link grails.gorm.rx.rest.interceptor.RequestInterceptor} instances to use
      */
     String SETTING_INTERCEPTORS     = "grails.gorm.rest.interceptors"
+
+    /**
+     * The {@link org.bson.codecs.Codec} instances to use
+     */
+    String SETTING_CODECS           = "grails.gorm.rest.codecs"
     /**
      * The type of query implementation to use. Either "simple" or "bson"
      */

@@ -9,7 +9,9 @@ import org.bson.codecs.configuration.CodecProvider
 import org.bson.codecs.configuration.CodecRegistries
 import org.bson.codecs.configuration.CodecRegistry
 import org.grails.datastore.bson.codecs.CodecExtensions
+import org.grails.datastore.mapping.config.ConfigurationUtils
 import org.grails.datastore.mapping.config.Property
+import org.grails.datastore.mapping.engine.types.CustomTypeMarshaller
 import org.grails.datastore.mapping.model.AbstractMappingContext
 import org.grails.datastore.mapping.model.MappingConfigurationStrategy
 import org.grails.datastore.mapping.model.MappingFactory
@@ -30,7 +32,7 @@ import org.springframework.validation.Errors
  */
 @CompileStatic
 class RestClientMappingContext extends AbstractMappingContext implements CodecProvider {
-    final MappingFactory<Endpoint, Property> mappingFactory = new RestClientMappingFactory()
+    final RestClientMappingFactory mappingFactory = new RestClientMappingFactory()
     final MappingConfigurationStrategy mappingSyntaxStrategy = new GormMappingConfigurationStrategy(mappingFactory)
     final CodecRegistry codecRegistry
 
@@ -46,6 +48,18 @@ class RestClientMappingContext extends AbstractMappingContext implements CodecPr
         }
         addPersistentEntities(classes)
         this.codecRegistry = CodecRegistries.fromProviders(new CodecExtensions(), this, new BsonValueCodecProvider(), new ValueCodecProvider(), new DocumentCodecProvider())
+    }
+
+    @Override
+    void configure(PropertyResolver configuration) {
+
+        Iterable<Codec> codecs = ConfigurationUtils.findServices(configuration, Settings.SETTING_CODECS, Codec.class);
+        for(Codec codec in codecs) {
+            def type = codec.encoderClass
+            this.codecs.put(type, codec)
+            mappingFactory.addSimpleType(type)
+        }
+        super.configure(configuration)
     }
 
     @Override

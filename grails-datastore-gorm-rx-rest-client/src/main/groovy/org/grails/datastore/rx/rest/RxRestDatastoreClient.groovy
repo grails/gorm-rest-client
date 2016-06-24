@@ -35,6 +35,7 @@ import org.grails.datastore.bson.codecs.BsonPersistentEntityCodec
 import org.grails.datastore.bson.json.JsonReader
 import org.grails.datastore.bson.json.JsonWriter
 import org.grails.datastore.gorm.GormValidateable
+import org.grails.datastore.gorm.validation.constraints.registry.DefaultValidatorRegistry
 import org.grails.datastore.mapping.config.ConfigurationUtils
 import org.grails.datastore.mapping.core.DatastoreUtils
 import org.grails.datastore.mapping.model.DatastoreConfigurationException
@@ -654,7 +655,9 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient<RxHttpClientBuilde
     }
 
     protected static RestClientMappingContext createMappingContext(PropertyResolver configuration, Class... classes) {
-        return new RestClientMappingContext(configuration, classes)
+        RestClientMappingContext mappingContext = new RestClientMappingContext(configuration, classes)
+        mappingContext.setValidatorRegistry(new DefaultValidatorRegistry(mappingContext, configuration))
+        return mappingContext
     }
 
     Observable<HttpClientResponse> prepareRequest(RestEndpointPersistentEntity restEndpointPersistentEntity, HttpClientRequest<ByteBuf, ByteBuf> httpClientRequest, Object instance = null) {
