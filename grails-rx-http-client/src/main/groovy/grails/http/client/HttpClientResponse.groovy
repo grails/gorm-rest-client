@@ -7,6 +7,7 @@ import groovy.util.slurpersupport.GPathResult
 import io.netty.buffer.ByteBuf
 import io.netty.buffer.ByteBufHolder
 import io.netty.buffer.ByteBufInputStream
+import io.netty.buffer.Unpooled
 import rx.Observable
 import rx.functions.Func1
 
@@ -40,46 +41,36 @@ class HttpClientResponse {
      * @return The JSON representation of the response body
      */
     Observable toJson() {
-        nettyResponse.content.map( { Object o ->
-            if(o instanceof ByteBufHolder) {
-                o = ((ByteBufHolder)o).content()
-            }
-            if(o instanceof ByteBuf) {
-                ByteBufInputStream inputStream = null
+        nettyResponse.content.toList().map({ List<ByteBuf> o ->
+            ByteBuf byteBuf = Unpooled.wrappedBuffer(o as ByteBuf[])
+            ByteBufInputStream inputStream = null
 
-                try {
-                    inputStream = new ByteBufInputStream((ByteBuf)o)
-                    Reader reader = new InputStreamReader(inputStream, charset)
-                    return new JsonSlurper().parse(reader)
-                } finally {
-                    inputStream?.close()
-                }
+            try {
+                inputStream = new ByteBufInputStream(byteBuf)
+                Reader reader = new InputStreamReader(inputStream, charset)
+                return new JsonSlurper().parse(reader)
+            } finally {
+                inputStream?.close()
             }
-            return null
-        } )
+        })
     }
 
     /**
      * @return An XML representation for the response body
      */
     Observable<GPathResult> toXml() {
-        nettyResponse.content.map( { Object o ->
-            if(o instanceof ByteBufHolder) {
-                o = ((ByteBufHolder)o).content()
-            }
-            if(o instanceof ByteBuf) {
-                ByteBufInputStream inputStream = null
+        nettyResponse.content.toList().map({ List<ByteBuf> o ->
+            ByteBuf byteBuf = Unpooled.wrappedBuffer(o as ByteBuf[])
+            ByteBufInputStream inputStream = null
 
-                try {
-                    inputStream = new ByteBufInputStream((ByteBuf)o)
-                    Reader reader = new InputStreamReader(inputStream, charset)
-                    return new XmlSlurper().parse(reader)
-                } finally {
-                    inputStream?.close()
-                }
+            try {
+                inputStream = new ByteBufInputStream(byteBuf)
+                Reader reader = new InputStreamReader(inputStream, charset)
+                return new XmlSlurper().parse(reader)
+            } finally {
+                inputStream?.close()
             }
-            return null
-        }  ) as Observable<GPathResult>
+        })
     }
 
     Observable getBody() {
@@ -87,17 +78,12 @@ class HttpClientResponse {
     }
 
     Observable<String> toText(Charset charset = this.charset) {
-        nettyResponse.content.map( { Object o ->
-            if(o instanceof ByteBuf) {
-                return ((ByteBuf)o).toString(charset)
-            }
-            else if(o instanceof ByteBufHolder) {
-                return ((ByteBufHolder)o).content().toString(charset)
-            }
-            return ""
-        } )
-    }
+        nettyResponse.content.toList().map({ List<ByteBuf> o ->
+            ByteBuf byteBuf = Unpooled.wrappedBuffer(o as ByteBuf[])
+            return byteBuf.toString(charset)
 
+        })
+    }
 
     /**
      * Obtain a value of a header

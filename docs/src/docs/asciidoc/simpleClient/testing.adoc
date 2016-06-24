@@ -1,0 +1,31 @@
+To facilitate testing and mocking you can use the link:../api/grails/http/client/test/TestRxHttpClientBuilder.html[TestRxHttpClientBuilder] class.
+
+The `TestRxHttpClientBuilder` provides the ability to mock HTTP responses and avoid external HTTP requests within your unit tests.
+
+For example:
+
+[source,groovy]
+TestRxHttpClientBuilder client = new TestRxHttpClientBuilder()
+client.expect {
+    uri '/foo/bar'
+    method "GET"
+    accept 'application/json'
+}.respond {
+    ok()
+    json {
+        title "Hello"
+    }
+}
+...
+Observable<HttpClientResponse> p = client.get("https://localhost:8080/foo/bar") {
+    accept 'application/json'
+}
+HttpClientResponse response = p.toBlocking().first()
+...
+assert client.verify()
+assert response.status == HttpStatus.OK
+assert response.json.title == "Hello"
+
+
+
+

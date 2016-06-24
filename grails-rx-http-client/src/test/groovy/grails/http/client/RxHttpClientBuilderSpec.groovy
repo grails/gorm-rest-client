@@ -2,7 +2,7 @@ package grails.http.client
 
 import grails.http.HttpMethod
 import grails.http.HttpStatus
-import grails.http.client.test.TestAsyncHttpBuilder
+import grails.http.client.test.TestRxHttpClientBuilder
 import groovy.transform.NotYetImplemented
 import rx.Observable
 import spock.lang.Specification
@@ -14,7 +14,7 @@ class RxHttpClientBuilderSpec extends Specification {
     @NotYetImplemented
     void "Test multipart form submission"() {
         given:"A client"
-        RxHttpClientBuilder client = new TestAsyncHttpBuilder()
+        RxHttpClientBuilder client = new TestRxHttpClientBuilder()
 
         def mock = client.expect("http://localhost:8080") {
             uri('/foo/bar')
@@ -45,7 +45,7 @@ class RxHttpClientBuilderSpec extends Specification {
     @NotYetImplemented
     void "Test form submission"() {
         given:"A client"
-        RxHttpClientBuilder client = new TestAsyncHttpBuilder()
+        RxHttpClientBuilder client = new TestRxHttpClientBuilder()
 
         def mock = client.expect {
             uri('/foo/bar')
@@ -74,7 +74,7 @@ class RxHttpClientBuilderSpec extends Specification {
 
     void 'Test simple GET request with JSON response'() {
         given:"an http client instance"
-        RxHttpClientBuilder client = new TestAsyncHttpBuilder()
+        RxHttpClientBuilder client = new TestRxHttpClientBuilder()
         def mock = client.expect {
             uri '/foo/bar'
             method "GET"
@@ -102,7 +102,7 @@ class RxHttpClientBuilderSpec extends Specification {
 
     void 'Test simple POST request with JSON body and JSON response'() {
         given:"an http client instance"
-        TestAsyncHttpBuilder client = new TestAsyncHttpBuilder()
+        TestRxHttpClientBuilder client = new TestRxHttpClientBuilder()
         def mock = client.expect {
             uri '/foo/bar'
             method "POST"
@@ -135,7 +135,7 @@ class RxHttpClientBuilderSpec extends Specification {
 
     void 'Test simple POST request with XML body and XMLresponse'() {
         given:"an http client instance"
-        TestAsyncHttpBuilder client = new TestAsyncHttpBuilder()
+        TestRxHttpClientBuilder client = new TestRxHttpClientBuilder()
         def mock = client.expect {
             uri '/foo/bar'
             method HttpMethod.POST

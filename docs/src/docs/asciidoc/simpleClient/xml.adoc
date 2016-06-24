@@ -1,0 +1,20 @@
+To send XML you can use the `xml` method which uses an instance of Groovy's http://docs.groovy-lang.org/latest/html/gapi/groovy/xml/StreamingMarkupBuilder.html[StreamingMarkupBuilder]:
+
+[source,groovy]
+Observable<HttpClientResponse> p = client.post("https://localhost:8080/foo/bar") {
+    xml {
+        message {
+            title "Ping"
+        }
+    }
+}
+
+The `xml` method is defined within the link:../api/grails/http/client/builder/HttpMessageBuilder.html[HttpMessageBuilder] class.
+
+To read an XML response use the `toXml` method of the link:../api/grails/http/client/HttpClientResponse.html[HttpClientResponse], which returns a Groovy link:http://docs.groovy-lang.org/latest/html/api/groovy/util/slurpersupport/GPathResult.html[GPathResult]:
+
+[source,groovy]
+p.toXml().subscribe { GPathResult xml ->
+    assert xml.message.text() == 'Pong'
+}
+

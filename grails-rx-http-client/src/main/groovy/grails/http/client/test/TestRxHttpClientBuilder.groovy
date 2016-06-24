@@ -11,7 +11,7 @@ import groovy.transform.CompileStatic
  *
  * <p>Below is an example:
  * <pre class="code">
- *   TestAsyncHttpBuilder client = new TestAsyncHttpBuilder()
+ *   TestRxHttpClientBuilder client = new TestRxHttpClientBuilder()
  *   client.expect {
  *       uri '/foo/bar'
  *       method "POST"
@@ -26,7 +26,7 @@ import groovy.transform.CompileStatic
  *       }
  *   }
  *
- *    Promise<HttpClientResponse> p = client.post("https://localhost:8080/foo/bar") {
+ *    Observable<HttpClientResponse> p = client.post("https://localhost:8080/foo/bar") {
  *        contentType 'application/json'
  *        json {
  *            title "Ping"
@@ -41,11 +41,11 @@ import groovy.transform.CompileStatic
  * @since 1.0
  */
 @CompileStatic
-class TestAsyncHttpBuilder extends RxHttpClientBuilder {
+class TestRxHttpClientBuilder extends RxHttpClientBuilder {
 
     HttpTestServer currentServer
 
-    TestAsyncHttpBuilder(Configuration configuration = new DefaultConfiguration()) {
+    TestRxHttpClientBuilder(Configuration configuration = new DefaultConfiguration()) {
         super(configuration)
     }
 

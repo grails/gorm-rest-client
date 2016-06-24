@@ -1,0 +1,33 @@
+RxGORM for REST includes a low level client in the form of the link:../api/grails/http/client/RxHttpClientBuilder.html[RxHttpClientBuilder] class that can be used to fulfill use cases that don't warrant the creation of a domain class.
+
+The most simple use case for obtaining content can be seen below:
+
+[source,groovy]
+import grails.http.client.*
+...
+RxHttpClientBuilder client = new RxHttpClientBuilder()
+Observable<RxHttpClientBuilder> p = client.post("https://localhost:8080/foo/bar") {
+    contentType 'application/json'
+    json {
+        title "Ping"
+    }
+}
+p.toJson().subscribe { Object json ->
+    assert json.title == 'Pong'
+}
+
+If you are using the Grails plugin then you do not need to instantiate a new instance and can instead just autowire the existing instance into your controller:
+
+[source,groovy]
+@Autowired
+RxHttpClientBuilder httpClient
+
+
+=== Sending & Receiving JSON
+
+include::json.adoc[]
+
+=== Sending & Receiving XML
+
+include::xml.adoc[]
+

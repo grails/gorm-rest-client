@@ -85,7 +85,6 @@ include::domain/interceptors.adoc[]
 include::domain/batchWrites.adoc[]
 
 
-
 [[associations]]
 == Modelling Associations
 
@@ -124,6 +123,10 @@ include::querying/bsonQueries.adoc[]
 [[testing]]
 == Testing
 include::testing/index.adoc[]
+
+[[simpleClient]]
+== Simple HTTP Client
+include::simpleClient/index.adoc[]
 
 [[reference]]
 == Reference

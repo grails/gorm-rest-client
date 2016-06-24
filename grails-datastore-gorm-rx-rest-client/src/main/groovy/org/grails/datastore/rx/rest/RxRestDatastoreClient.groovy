@@ -261,9 +261,12 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient<RxHttpClientBuilde
         this.codecRegistry = mappingContext.codecRegistry
         def clientConfiguration = new DefaultConfiguration()
 
-        // TODO: populate other config
         clientConfiguration.setReadTimeout(readTimeout)
         clientConfiguration.setEncoding(charset.toString())
+        clientConfiguration.setSslProvider(sslProvider)
+        clientConfiguration.setSslSessionCacheSize(sslSessionTimeout)
+        clientConfiguration.setSslSessionCacheSize(sslSessionCacheSize)
+        clientConfiguration.setSslTrustManagerFactory(sslTrustManagerFactory)
 
         this.rxHttpClientBuilder = new RxHttpClientBuilder(connectionProviderFactory, clientConfiguration)
         interceptors.addAll(
