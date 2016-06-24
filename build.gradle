@@ -39,7 +39,9 @@ ext {
 
 subprojects { project ->
 
-    boolean isPluginProject = project.name.endsWith("-plugin") && project.name.startsWith("grails")
+
+    boolean pluginPrefix = project.name.startsWith("grails-") || project.name.startsWith("rx-")
+    boolean isPluginProject = project.name.endsWith("-plugin") && pluginPrefix
     boolean isGrails3PluginProject = project.name.endsWith("-plugin") && !project.name.startsWith("grails2")
     boolean isGrails2PluginProject = project.name.endsWith("-plugin") && project.name.startsWith("grails2")
 
@@ -213,6 +215,9 @@ subprojects { project ->
                 pom.withXml {
                     def xml = asNode()
                     def dependency = xml.dependencies.find { dep -> dep.artifactId == 'slf4j-simple' }
+
+                    xml.dependencyManagement.replaceNode {}
+                    
                     dependency?.optional = true
                     xml.children().last() + pomInfo
 
@@ -294,7 +299,7 @@ class PublishingConvention {
     String projectArtifactId
     String projectName = 'GORM REST Client'
     String projectDescription = 'Provides a GORM Object Mapping implementation for communication with REST web services'
-    String projectURL = 'https://gorm.grails.org/latest/rest-client'
+    String projectURL = 'http://gorm.grails.org/rx/rest-client/'
     String projectIssueTrackerUrl = 'https://github.com/grails/gorm-rest-client/issues'
     String projectVcsUrl = 'https://github.com/grails/gorm-rest-client'
 
