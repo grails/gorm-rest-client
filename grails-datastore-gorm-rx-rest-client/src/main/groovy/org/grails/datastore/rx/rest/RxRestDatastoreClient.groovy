@@ -17,10 +17,13 @@ import io.netty.buffer.ByteBufHolder
 import io.netty.buffer.ByteBufInputStream
 import io.netty.buffer.ByteBufOutputStream
 import io.netty.buffer.Unpooled
+import io.netty.channel.ChannelHandler
 import io.netty.handler.codec.base64.Base64
 import io.netty.handler.codec.http.HttpHeaderNames
 import io.netty.handler.codec.http.HttpResponseStatus
 import io.netty.handler.logging.LogLevel
+import io.netty.handler.proxy.HttpProxyHandler
+import io.netty.handler.proxy.Socks5ProxyHandler
 import io.netty.handler.ssl.SslContext
 import io.netty.handler.ssl.SslContextBuilder
 import io.netty.handler.ssl.SslProvider
@@ -68,6 +71,7 @@ import org.springframework.core.env.PropertyResolver
 import org.springframework.validation.Errors
 import rx.Observable
 import rx.Subscriber
+import rx.functions.Func0
 import rx.functions.Func1
 import rx.functions.Func2
 
@@ -208,6 +212,11 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient<RxHttpClientBuilde
 
     final SslContext sslContext
 
+    /**
+     * The proxies to use to connect
+     */
+    final List<Proxy> proxies
+
     protected final boolean allowBlockingOperations
 
 
@@ -223,9 +232,16 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient<RxHttpClientBuilde
         if(hosts.isEmpty()) {
             String hostString = configuration.getProperty(SETTING_HOST, String.class, "http://localhost:8080")
             this.isSecure = hostString.startsWith("https")
+
+            def proxyList = ProxySelector.getDefault()?.select(new URI(hostString))?.findAll { Proxy proxy -> proxy.type() != Proxy.Type.DIRECT }
+            this.proxies = proxyList ?: null
         }
         else {
             this.isSecure = hosts.any { Object o -> o.toString().startsWith("https") }
+
+            def hostUri = new URI(hosts.find { Object o -> o }.toString())
+            def proxyList = ProxySelector.getDefault()?.select(hostUri)?.findAll { Proxy proxy -> proxy.type() != Proxy.Type.DIRECT }
+            this.proxies = proxyList ?: null
         }
 
         this.sslProvider = configuration.getProperty(SETTING_SSL_PROVIDER, SslProvider, SslContext.defaultClientProvider())
@@ -390,6 +406,8 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient<RxHttpClientBuilde
         else if(logLevel != null) {
             httpClient = httpClient.enableWireLogging(logLevel)
         }
+
+        httpClient = proxies != null ? configureProxy(httpClient) : httpClient
 
         if(isSecure) {
             if(sslTrustManagerFactory == InsecureTrustManagerFactory.INSTANCE) {
@@ -787,6 +805,50 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient<RxHttpClientBuilde
     @Override
     def <T> Codec<T> get(Class<T> clazz, CodecRegistry registry) {
         getMappingContext().get(clazz, codecRegistry)
+    }
+
+    /**
+     * Configures any {@link Proxy} instances for the client
+     *
+     * @param httpClient The client
+     * @return The configured client
+     */
+    protected HttpClient<ByteBuf, ByteBuf> configureProxy(HttpClient<ByteBuf, ByteBuf> httpClient) {
+        if(proxies != null) {
+            for(Proxy proxy in proxies) {
+                Proxy.Type proxyType = proxy.type()
+                if(proxyType == Proxy.Type.DIRECT) continue
+
+                def type = proxyType.name().toLowerCase()
+                String username = System.getProperty("${type}.proxyUser")
+                String password = System.getProperty("${type}.proxyPassword")
+
+                httpClient = httpClient.addChannelHandlerLast("${type}.proxy", {
+                    if(username && password) {
+                        switch(type) {
+                            case Proxy.Type.SOCKS:
+                                return new Socks5ProxyHandler(proxy.address(), username, password)
+                                break
+                            default:
+                                return new HttpProxyHandler(proxy.address(), username, password)
+                                break
+
+                        }
+                    }
+                    else {
+                        switch(type) {
+                            case Proxy.Type.SOCKS:
+                                return new Socks5ProxyHandler(proxy.address())
+                                break
+                            default:
+                                return new HttpProxyHandler(proxy.address())
+                                break
+                        }
+                    }
+                } as Func0<ChannelHandler>)
+            }
+        }
+        return httpClient
     }
 
     private static class ResponseAndEntity {
