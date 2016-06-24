@@ -512,7 +512,7 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient<RxHttpClientBuilde
 
                     if(status == HttpResponseStatus.CREATED ) {
                         if(MediaType.JSON == mediaType) {
-                            return Observable.combineLatest( Observable.just(responseAndEntity), response.content, { ResponseAndEntity res, Object content ->
+                            return Observable.combineLatest( Observable.just(responseAndEntity), response.content.toList(), { ResponseAndEntity res, List<ByteBuf> content ->
                                 res.content = content
                                 return res
                             } as Func2<ResponseAndEntity, Object, ResponseAndEntity>)
@@ -526,7 +526,7 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient<RxHttpClientBuilde
                     }
                     else if(status == HttpResponseStatus.UNPROCESSABLE_ENTITY ) {
                         if(MediaType.VND_ERROR == mediaType) {
-                            return Observable.combineLatest( Observable.just(responseAndEntity), response.content, { ResponseAndEntity res, Object content ->
+                            return Observable.combineLatest( Observable.just(responseAndEntity), response.content.toList(), { ResponseAndEntity res, List<ByteBuf> content ->
                                 res.content = content
                                 return res
                             } as Func2<ResponseAndEntity, Object, ResponseAndEntity>)
@@ -541,19 +541,12 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient<RxHttpClientBuilde
                 }
                 .reduce(0L, { Long count, ResponseAndEntity responseAndContent ->
                     HttpClientResponse response = responseAndContent.response
-                    Object content = responseAndContent.content
+                    List<ByteBuf> content = responseAndContent.content
                     HttpResponseStatus status = response.status
                     if(status == HttpResponseStatus.CREATED || status == HttpResponseStatus.OK) {
                         count++
                         if(content != null) {
-                            ByteBuf byteBuf
-                            if (content instanceof ByteBuf) {
-                                byteBuf = (ByteBuf) content
-                            } else if (content instanceof ByteBufHolder) {
-                                byteBuf = ((ByteBufHolder) content).content()
-                            } else {
-                                throw new IllegalStateException("Received invalid response object: $content")
-                            }
+                            ByteBuf byteBuf = Unpooled.wrappedBuffer(content as ByteBuf[])
 
                             def reader = new InputStreamReader(new ByteBufInputStream(byteBuf))
                             Codec codec = responseAndContent.codec
@@ -580,14 +573,7 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient<RxHttpClientBuilde
 
                     if(MediaType.VND_ERROR == responseAndContent.mediaType && content != null) {
                         try {
-                            ByteBuf byteBuf
-                            if (content instanceof ByteBuf) {
-                                byteBuf = (ByteBuf) content
-                            } else if (content instanceof ByteBufHolder) {
-                                byteBuf = ((ByteBufHolder) content).content()
-                            } else {
-                                throw new IllegalStateException("Received invalid response object: $content")
-                            }
+                            ByteBuf byteBuf = Unpooled.wrappedBuffer(content as ByteBuf[])
 
                             def reader = new InputStreamReader(new ByteBufInputStream(byteBuf))
                             JsonReader jsonReader = new JsonReader(reader)
@@ -807,7 +793,7 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient<RxHttpClientBuilde
         final Object object
         final Codec codec
 
-        Object content
+        List<ByteBuf> content
         MediaType mediaType
 
         ResponseAndEntity(String uri, HttpClientResponse response, PersistentEntity entity, Object object, Codec codec) {

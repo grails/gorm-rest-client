@@ -11,6 +11,7 @@ import groovy.util.logging.Slf4j
 import io.netty.buffer.ByteBuf
 import io.netty.buffer.ByteBufHolder
 import io.netty.buffer.ByteBufInputStream
+import io.netty.buffer.Unpooled
 import io.netty.handler.codec.http.HttpHeaderNames
 import io.netty.util.concurrent.BlockingOperationException
 import io.reactivex.netty.protocol.http.client.HttpClient
@@ -139,15 +140,8 @@ class SimpleRxRestQuery<T> extends Query implements RxQuery<T> {
         finalRequest
                 .switchMap { HttpClientResponse response ->
             response.getContent()
-        }.switchMap { Object object ->
-            ByteBuf byteBuf
-            if (object instanceof ByteBuf) {
-                byteBuf = (ByteBuf) object
-            } else if (object instanceof ByteBufHolder) {
-                byteBuf = ((ByteBufHolder) object).content()
-            } else {
-                throw new IllegalStateException("Received invalid response object: $object")
-            }
+        }.toList().switchMap { List<ByteBuf> objects ->
+            ByteBuf byteBuf = Unpooled.wrappedBuffer(objects as ByteBuf[])
 
             if(singleResult) {
                 def baseObservable = Observable.create({ Subscriber subscriber ->
