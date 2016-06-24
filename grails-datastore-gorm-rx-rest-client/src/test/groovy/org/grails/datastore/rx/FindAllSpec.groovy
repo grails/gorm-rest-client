@@ -17,6 +17,35 @@ class FindAllSpec extends RxGormSpec {
         [Person, HalPerson]
     }
 
+    void 'Test parameterized query'() {
+        given:
+        def mock = client.expect {
+            uri '/people/Test'
+            accept(MediaType.HAL_JSON)
+        }.respond {
+            json( [
+                    [
+                            id: 1,
+                            name: "Fred",
+                            age: 10,
+                            dateOfBirth: "2006-07-09T00:00+0000"],
+                    [
+                            id: 2,
+                            name: "Joe",
+                            age: 12,
+                            dateOfBirth: "2004-07-09T00:00+0000"],
+            ] )
+        }
+
+        when:""
+        def results = Person.where {
+            eq 'category', 'Test'
+        }.findAll(uri:'/people/{category}').toList().toBlocking().first()
+
+        then:
+        results.size() == 2
+    }
+
     void "Test the findAll method returns all objects when using HAL"() {
         given:"A canned response"
         def mock = client.expect {

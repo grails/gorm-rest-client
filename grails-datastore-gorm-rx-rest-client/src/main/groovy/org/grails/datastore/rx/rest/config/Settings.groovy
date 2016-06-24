@@ -134,6 +134,10 @@ interface Settings {
     String ARGUMENT_METHOD          = "method"
 
     /**
+     * The queryType argument
+     */
+    String ARGUMENT_QUERY_TYPE          = "queryType"
+    /**
      * The uri argument
      */
     String ARGUMENT_URI = "uri"

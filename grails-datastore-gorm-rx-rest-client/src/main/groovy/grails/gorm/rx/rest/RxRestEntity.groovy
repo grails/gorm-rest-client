@@ -254,7 +254,7 @@ trait RxRestEntity<D> implements RxEntity<D>, DynamicAttributes {
      * @param callable Callable closure containing detached criteria definition
      * @return The DetachedCriteria instance
      */
-    static RestDetachedCriteria<D> where(Closure callable) {
+    static RestDetachedCriteria<D> where(@DelegatesTo(RestDetachedCriteria) Closure callable) {
         currentRestStaticApi().where callable
     }
 
@@ -263,7 +263,7 @@ trait RxRestEntity<D> implements RxEntity<D>, DynamicAttributes {
      * @param callable Callable closure containing detached criteria definition
      * @return The DetachedCriteria instance that is lazily initialized
      */
-    static RestDetachedCriteria<D> whereLazy(Closure callable) {
+    static RestDetachedCriteria<D> whereLazy(@DelegatesTo(RestDetachedCriteria) Closure callable) {
         currentRestStaticApi().whereLazy callable
     }
 
@@ -272,7 +272,7 @@ trait RxRestEntity<D> implements RxEntity<D>, DynamicAttributes {
      * @param callable Callable closure containing detached criteria definition
      * @return The DetachedCriteria instance
      */
-    static RestDetachedCriteria<D> whereAny(Closure callable) {
+    static RestDetachedCriteria<D> whereAny(@DelegatesTo(RestDetachedCriteria) Closure callable) {
         currentRestStaticApi().whereAny callable
     }
 

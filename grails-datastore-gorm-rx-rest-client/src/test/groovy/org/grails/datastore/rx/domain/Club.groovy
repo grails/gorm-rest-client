@@ -24,6 +24,10 @@ class Club implements RxRestEntity<Club> {
     // Maps to URI /club/1/stadium
     static hasOne = [stadium:Stadium]
 
+    List<String> nicknames = []
+
+    Map<String, Integer> squadNumbers = [:]
+
     static mapping = {
         contentType MediaType.HAL_JSON
         captain uri:"/club/{club}/captain"

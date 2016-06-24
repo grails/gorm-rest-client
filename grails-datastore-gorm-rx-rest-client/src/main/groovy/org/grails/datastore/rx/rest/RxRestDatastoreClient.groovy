@@ -77,7 +77,7 @@ import java.util.concurrent.TimeUnit
 @CompileStatic
 @Slf4j
 class RxRestDatastoreClient extends AbstractRxDatastoreClient<RxHttpClientBuilder> implements CodecsRxDatastoreClient<RxHttpClientBuilder>, Settings {
-
+    private static final BSON_QUERY_TYPE = "bson"
     /**
      * The {@link ConnectionProviderFactory} to use to create connections
      */
@@ -187,7 +187,7 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient<RxHttpClientBuilde
         this.username = configuration.getProperty(SETTING_USERNAME, String, null)
         this.password = configuration.getProperty(SETTING_PASSWORD, String, null)
         this.charset = Charset.forName( configuration.getProperty(SETTING_CHARSET, "UTF-8"))
-        this.queryType = (configuration.getProperty(SETTING_QUERY_TYPE, String, "simple") == "bson") ? BsonRxRestQuery : SimpleRxRestQuery
+        this.queryType = (configuration.getProperty(SETTING_QUERY_TYPE, String, "simple") == BSON_QUERY_TYPE) ? BsonRxRestQuery : SimpleRxRestQuery
         this.readTimeout = configuration.getProperty(SETTING_READ_TIMEOUT, Integer, -1)
         this.logLevel = configuration.getProperty(SETTING_LOG_LEVEL, LogLevel, null)
         this.defaultUpdateMethod = configuration.getProperty(SETTING_UPDATE_METHOD, HttpMethod, HttpMethod.PUT)
@@ -548,17 +548,44 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient<RxHttpClientBuilde
 
     @Override
     Query createEntityQuery(PersistentEntity entity, QueryState queryState) {
-        return queryType.newInstance(this, entity, queryState)
+        return createEntityQuery(entity, queryState, [:])
     }
 
+    @Override
+    Query createEntityQuery(PersistentEntity entity, QueryState queryState, Map arguments) {
+        def queryTypeArg = arguments.get(ARGUMENT_QUERY_TYPE)
+        if(queryTypeArg) {
+            if(BSON_QUERY_TYPE.equals(queryTypeArg)) {
+                return new BsonRxRestQuery(this, entity, queryState)
+            }
+            else {
+                return queryType.newInstance(this, entity, queryState)
+            }
+        }
+        else {
+            return queryType.newInstance(this, entity, queryState)
+        }
+    }
 
-    final Query createQuery(Class type, UriTemplate uriTemplate, QueryState queryState) {
+    final Query createQuery(Class type, UriTemplate uriTemplate, QueryState queryState, Map arguments = Collections.emptyMap()) {
+
         def entity = mappingContext.getPersistentEntity(type.name)
         if(entity == null) {
             throw new IllegalArgumentException("Type [$type.name] is not a persistent type")
         }
+        def queryTypeArg = arguments.get(ARGUMENT_QUERY_TYPE)
+        if(queryTypeArg) {
+            if(BSON_QUERY_TYPE.equals(queryTypeArg)) {
+                return new BsonRxRestQuery(this, entity, uriTemplate, queryState)
+            }
+            else {
+                return queryType.newInstance(this, entity, uriTemplate, queryState)
+            }
+        }
+        else {
+            return queryType.newInstance(this, entity, uriTemplate, queryState)
+        }
 
-        return queryType.newInstance(this, entity, uriTemplate, queryState)
     }
 
     @Override

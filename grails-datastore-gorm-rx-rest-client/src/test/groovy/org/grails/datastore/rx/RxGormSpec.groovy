@@ -2,11 +2,8 @@ package org.grails.datastore.rx
 
 import groovy.transform.CompileStatic
 import org.grails.datastore.bson.json.JsonWriter
-import org.grails.datastore.mapping.core.DatastoreUtils
-import org.grails.datastore.rx.rest.RxRestDatastoreClient
 import org.grails.datastore.rx.rest.test.TestRxRestDatastoreClient
 import spock.lang.AutoCleanup
-import spock.lang.Shared
 import spock.lang.Specification
 
 import java.text.DateFormat
@@ -29,10 +26,6 @@ abstract class RxGormSpec extends Specification {
 
     protected TestRxRestDatastoreClient createRestDatastoreClient(List<Class> classes) {
         new TestRxRestDatastoreClient(classes as Class[])
-    }
-
-    void cleanup() {
-        client.reset()
     }
 
     abstract List<Class> getDomainClasses()
