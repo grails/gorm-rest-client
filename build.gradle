@@ -216,8 +216,12 @@ subprojects { project ->
                     def xml = asNode()
                     def dependency = xml.dependencies.find { dep -> dep.artifactId == 'slf4j-simple' }
 
-                    xml.dependencyManagement.replaceNode {}
-                    
+                    try {
+                        xml.dependencyManagement.replaceNode {}
+                    } catch (Throwable e) {
+                        // ignore
+                    }
+
                     dependency?.optional = true
                     xml.children().last() + pomInfo
 
