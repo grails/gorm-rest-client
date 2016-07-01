@@ -47,6 +47,11 @@ import org.grails.datastore.gorm.GormValidateable
 import org.grails.datastore.gorm.validation.constraints.registry.DefaultValidatorRegistry
 import org.grails.datastore.mapping.config.ConfigurationUtils
 import org.grails.datastore.mapping.core.DatastoreUtils
+import org.grails.datastore.mapping.core.connections.ConnectionSource
+import org.grails.datastore.mapping.core.connections.ConnectionSources
+import org.grails.datastore.mapping.core.connections.ConnectionSourcesInitializer
+import org.grails.datastore.mapping.core.connections.DefaultConnectionSource
+import org.grails.datastore.mapping.core.connections.InMemoryConnectionSources
 import org.grails.datastore.mapping.model.DatastoreConfigurationException
 import org.grails.datastore.mapping.model.PersistentEntity
 import org.grails.datastore.mapping.query.Query
@@ -62,6 +67,9 @@ import org.grails.datastore.rx.rest.codecs.ContextAwareCodec
 import org.grails.datastore.rx.rest.config.PoolConfigBuilder
 import org.grails.datastore.rx.rest.config.RestClientMappingContext
 import org.grails.datastore.rx.rest.config.Settings
+import org.grails.datastore.rx.rest.connections.RestConnectionSourceFactory
+import org.grails.datastore.rx.rest.connections.RestConnectionSourceSettings
+import org.grails.datastore.rx.rest.connections.RestConnectionSourceSettingsBuilder
 import org.grails.datastore.rx.rest.query.BsonRxRestQuery
 import org.grails.datastore.rx.rest.query.SimpleRxRestQuery
 import org.grails.gorm.rx.api.RxGormEnhancer
@@ -89,7 +97,7 @@ import java.util.concurrent.TimeUnit
  */
 @CompileStatic
 @Slf4j
-class RxRestDatastoreClient extends AbstractRxDatastoreClient<RxHttpClientBuilder> implements CodecsRxDatastoreClient<RxHttpClientBuilder>, Settings {
+class RxRestDatastoreClient extends AbstractRxDatastoreClient implements CodecsRxDatastoreClient, Settings {
     private static final BSON_QUERY_TYPE = "bson"
     /**
      * The {@link ConnectionProviderFactory} to use to create connections
@@ -219,64 +227,55 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient<RxHttpClientBuilde
 
     protected final boolean allowBlockingOperations
 
+    final RestConnectionSourceSettings settings
 
-    RxRestDatastoreClient(List<SocketAddress> serverAddress, PropertyResolver configuration, RestClientMappingContext mappingContext) {
-        super(mappingContext)
+    RxRestDatastoreClient(ConnectionSources<ConnectionProviderFactory, RestConnectionSourceSettings> connectionSources, PropertyResolver configuration, RestClientMappingContext mappingContext) {
+        super(connectionSources, mappingContext)
 
-        if(serverAddress.isEmpty()) {
-            throw new IllegalArgumentException("At least 1 server address is required")
+        ConnectionSource<ConnectionProviderFactory, RestConnectionSourceSettings> defaultConnectionSource = connectionSources.defaultConnectionSource
+        RestConnectionSourceSettings settings = defaultConnectionSource.settings
+
+        List<String> hosts = settings.hosts
+        this.isSecure = hosts.any { String o -> o.startsWith("https") }
+
+        List<SocketAddress> socketAddresses = hosts.collect() { String host ->
+            URI uri = new URI(host)
+            int port = (uri.port > -1 ? uri.port : (isSecure ? 443 : 80))
+            return (SocketAddress)new InetSocketAddress(uri.host, port)
         }
 
-        List hosts = configuration.getProperty(SETTING_HOSTS, List, Collections.emptyList())
 
-        if(hosts.isEmpty()) {
-            String hostString = configuration.getProperty(SETTING_HOST, String.class, "http://localhost:8080")
-            this.isSecure = hostString.startsWith("https")
+        def hostUri = new URI(hosts.find { String o -> o })
+        def proxyList = ProxySelector.getDefault()?.select(hostUri)?.findAll { Proxy proxy -> proxy.type() != Proxy.Type.DIRECT }
+        this.proxies = proxyList ?: null
 
-            def proxyList = ProxySelector.getDefault()?.select(new URI(hostString))?.findAll { Proxy proxy -> proxy.type() != Proxy.Type.DIRECT }
-            this.proxies = proxyList ?: null
-        }
-        else {
-            this.isSecure = hosts.any { Object o -> o.toString().startsWith("https") }
-
-            def hostUri = new URI(hosts.find { Object o -> o }.toString())
-            def proxyList = ProxySelector.getDefault()?.select(hostUri)?.findAll { Proxy proxy -> proxy.type() != Proxy.Type.DIRECT }
-            this.proxies = proxyList ?: null
-        }
-
-        this.sslProvider = configuration.getProperty(SETTING_SSL_PROVIDER, SslProvider, SslContext.defaultClientProvider())
-        this.sslSessionTimeout = configuration.getProperty(SETTING_SSL_SESSION_TIMEOUT, Long, -1L)
-        this.sslSessionCacheSize = configuration.getProperty(SETTING_SSL_SESSION_CACHE_SIZE, Long, -1L)
-        this.sslTrustManagerFactory = configuration.getProperty(SETTING_SSL_TRUST_MANAGER_FACTORY, TrustManagerFactory, InsecureTrustManagerFactory.INSTANCE)
+        this.sslProvider = settings.sslProvider
+        this.sslSessionTimeout = settings.sslSessionTimeout
+        this.sslSessionCacheSize = settings.sslSessionCacheSize
+        this.sslTrustManagerFactory = settings.sslTrustManagerFactory
         this.sslContext = SslContextBuilder.forClient()
-                                            .sslProvider(sslProvider)
-                                            .sessionCacheSize(sslSessionCacheSize)
-                                            .sessionTimeout(sslSessionTimeout)
-                                            .trustManager(sslTrustManagerFactory)
-                                            .build()
+                .sslProvider(sslProvider)
+                .sessionCacheSize(sslSessionCacheSize)
+                .sessionTimeout(sslSessionTimeout)
+                .trustManager(sslTrustManagerFactory)
+                .build()
 
-        this.allowBlockingOperations = configuration.getProperty(SETTING_ALLOW_BLOCKING, Boolean, true)
-        this.hosts = Observable.merge(serverAddress.collect() { SocketAddress address -> Observable.just(new Host(address))})
-        this.username = configuration.getProperty(SETTING_USERNAME, String, null)
-        this.password = configuration.getProperty(SETTING_PASSWORD, String, null)
-        this.charset = Charset.forName( configuration.getProperty(SETTING_CHARSET, "UTF-8"))
-        this.queryType = (configuration.getProperty(SETTING_QUERY_TYPE, String, "simple") == BSON_QUERY_TYPE) ? BsonRxRestQuery : SimpleRxRestQuery
-        this.readTimeout = configuration.getProperty(SETTING_READ_TIMEOUT, Integer, -1)
-        this.logLevel = configuration.getProperty(SETTING_LOG_LEVEL, LogLevel, null)
-        this.defaultUpdateMethod = configuration.getProperty(SETTING_UPDATE_METHOD, HttpMethod, HttpMethod.PUT)
-
-        if(serverAddress.size() == 1) {
-            PoolConfigBuilder poolConfigBuilder = new PoolConfigBuilder(configuration)
-            PoolConfig pool = poolConfigBuilder.build()
-            this.connectionProviderFactory = SingleHostPoolingProviderFactory.create(pool)
-        }
-        else {
-            final LoadBalancingStrategy loadBalanceStrategy = configuration.getProperty(SETTING_LOAD_BALANCE_STRATEGY, LoadBalancingStrategy, new EWMABasedP2CStrategy())
-            this.connectionProviderFactory = LoadBalancerFactory.create(loadBalanceStrategy)
-        }
+        this.allowBlockingOperations = settings.allowBlockingOperations
+        this.interceptors.addAll(
+                ConfigurationUtils.findServices( settings.interceptors, RequestInterceptor )
+        )
+        this.hosts = Observable.merge(socketAddresses.collect() { SocketAddress address -> Observable.just(new Host(address))})
+        this.username = settings.username
+        this.password = settings.password
+        this.charset = Charset.forName( settings.charset )
+        this.queryType = (settings.query.type == BSON_QUERY_TYPE) ? BsonRxRestQuery : SimpleRxRestQuery
+        this.readTimeout = settings.readTimeout
+        this.logLevel = settings.logLevel
+        this.defaultUpdateMethod = settings.defaultUpdateMethod
+        this.connectionProviderFactory = defaultConnectionSource.source
         this.codecRegistry = mappingContext.codecRegistry
-        def clientConfiguration = new DefaultConfiguration()
 
+        def clientConfiguration = new DefaultConfiguration()
         clientConfiguration.setReadTimeout(readTimeout)
         clientConfiguration.setEncoding(charset.toString())
         clientConfiguration.setSslProvider(sslProvider)
@@ -285,16 +284,13 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient<RxHttpClientBuilde
         clientConfiguration.setSslTrustManagerFactory(sslTrustManagerFactory)
 
         this.rxHttpClientBuilder = new RxHttpClientBuilder(connectionProviderFactory, clientConfiguration)
-        interceptors.addAll(
-                ConfigurationUtils.findServices(configuration, SETTING_INTERCEPTORS, RequestInterceptor.class)
-        )
 
-        this.orderParameter = configuration.getProperty(SETTING_ORDER_PARAMETER, String, DEFAULT_ORDER_PARAMETER)
-        this.offsetParameter = configuration.getProperty(SETTING_OFFSET_PARAMETER, String, DEFAULT_OFFSET_PARAMETER)
-        this.sortParameter = configuration.getProperty(SETTING_SORT_PARAMETER, String, DEFAULT_SORT_PARAMETER)
-        this.maxParameter = configuration.getProperty(SETTING_MAX_PARAMETER, String, DEFAULT_MAX_PARAMETER)
-        this.queryParameter = configuration.getProperty(SETTING_QUERY_PARAMETER, String, DEFAULT_QUERY_PARAMETER)
-        this.expandParameter = configuration.getProperty(SETTING_EXPAND_PARAMETER, String, DEFAULT_EXPAND_PARAMETER)
+        this.orderParameter = settings.parameters.order
+        this.offsetParameter = settings.parameters.offset
+        this.sortParameter = settings.parameters.sort
+        this.maxParameter = settings.parameters.max
+        this.queryParameter = settings.parameters.query
+        this.expandParameter = settings.parameters.expand
         this.defaultParameterNames = new HashSet<>()
         defaultParameterNames.add(sortParameter)
         defaultParameterNames.add(maxParameter)
@@ -306,44 +302,26 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient<RxHttpClientBuilde
         initialize(mappingContext)
     }
 
-    RxRestDatastoreClient(List<SocketAddress> socketAddresses, RestClientMappingContext mappingContext) {
-        this(socketAddresses, DatastoreUtils.createPropertyResolver(null), mappingContext)
+    RxRestDatastoreClient(ConnectionSources<ConnectionProviderFactory, RestConnectionSourceSettings> connectionSources, Class... classes) {
+        this(connectionSources, connectionSources.baseConfiguration, createMappingContext(connectionSources.baseConfiguration, classes))
     }
-
-    RxRestDatastoreClient(List<SocketAddress> socketAddresses, PropertyResolver configuration, Class... classes) {
-        this(socketAddresses, configuration, createMappingContext(configuration, classes))
+    RxRestDatastoreClient(Iterable<String> hosts, PropertyResolver configuration, Class... classes) {
+        this(createDefaultConnectionSourcesForHosts(hosts, configuration), classes)
     }
-
-    RxRestDatastoreClient(List<SocketAddress> socketAddresses, Class... classes) {
-        this(socketAddresses, createMappingContext(DatastoreUtils.createPropertyResolver(null), classes))
+    RxRestDatastoreClient(Iterable<String> hosts, Class... classes) {
+        this(createDefaultConnectionSourcesForHosts(hosts, DatastoreUtils.createPropertyResolver(null)), classes)
     }
-
-    RxRestDatastoreClient(SocketAddress serverAddress, RestClientMappingContext mappingContext) {
-        this([serverAddress], DatastoreUtils.createPropertyResolver(null), mappingContext)
+    RxRestDatastoreClient(String host, PropertyResolver configuration, Class... classes) {
+        this(createDefaultConnectionSourcesForHosts([host], configuration), classes)
     }
-
-    RxRestDatastoreClient(SocketAddress serverAddress, PropertyResolver configuration, Class... classes) {
-        this([serverAddress], configuration, createMappingContext(configuration, classes))
+    RxRestDatastoreClient(String host, Class... classes) {
+        this(createDefaultConnectionSourcesForHosts([host], DatastoreUtils.createPropertyResolver(null)), classes)
     }
-
-    RxRestDatastoreClient(SocketAddress serverAddress, Class... classes) {
-        this(serverAddress, createMappingContext(DatastoreUtils.createPropertyResolver(null), classes))
-    }
-
-    RxRestDatastoreClient(PropertyResolver configuration, RestClientMappingContext mappingContext) {
-        this(createServerSocketAddresses(configuration), configuration, mappingContext)
-    }
-
-    RxRestDatastoreClient(RestClientMappingContext mappingContext) {
-        this(DatastoreUtils.createPropertyResolver(null), mappingContext)
-    }
-
     RxRestDatastoreClient(PropertyResolver configuration, Class... classes) {
-        this(configuration, createMappingContext(configuration, classes))
+        this(ConnectionSourcesInitializer.create(new RestConnectionSourceFactory(), configuration), configuration, createMappingContext(configuration, classes))
     }
-
     RxRestDatastoreClient(Class... classes) {
-        this(createMappingContext(DatastoreUtils.createPropertyResolver(null), classes))
+        this(DatastoreUtils.createPropertyResolver(null), classes)
     }
 
     @Override
@@ -769,12 +747,6 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient<RxHttpClientBuilde
 
     }
 
-    protected static RestClientMappingContext createMappingContext(PropertyResolver configuration, Class... classes) {
-        RestClientMappingContext mappingContext = new RestClientMappingContext(configuration, classes)
-        mappingContext.setValidatorRegistry(new DefaultValidatorRegistry(mappingContext, configuration))
-        return mappingContext
-    }
-
     Observable<HttpClientResponse> prepareRequest(HttpClientRequest<ByteBuf, ByteBuf> httpClientRequest, InterceptorContext context) {
         Observable<HttpClientResponse> finalRequest = httpClientRequest
         if (username != null && password != null) {
@@ -798,13 +770,32 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient<RxHttpClientBuilde
     }
 
     @Override
-    RxGormStaticApi createStaticApi(PersistentEntity entity) {
+    RxGormStaticApi createStaticApi(PersistentEntity entity, String connectionSourceName) {
         return new RxRestGormStaticApi(entity, this)
     }
 
     @Override
     def <T> Codec<T> get(Class<T> clazz, CodecRegistry registry) {
         getMappingContext().get(clazz, codecRegistry)
+    }
+
+    protected static InMemoryConnectionSources<ConnectionProviderFactory, RestConnectionSourceSettings> createDefaultConnectionSourcesForHosts(Iterable<String> hosts, PropertyResolver configuration) {
+        RestConnectionSourceSettingsBuilder builder = new RestConnectionSourceSettingsBuilder(configuration)
+        RestConnectionSourceSettings settings = builder.build()
+        settings.hosts(hosts.toList())
+
+        RestConnectionSourceFactory factory = new RestConnectionSourceFactory()
+        ConnectionSource<ConnectionProviderFactory, RestConnectionSourceSettings> connectionSource = factory.create(ConnectionSource.DEFAULT, settings)
+        return new InMemoryConnectionSources<ConnectionProviderFactory, RestConnectionSourceSettings>(
+                connectionSource,
+                factory,
+                configuration
+        )
+    }
+    protected static RestClientMappingContext createMappingContext(PropertyResolver configuration, Class... classes) {
+        RestClientMappingContext mappingContext = new RestClientMappingContext(configuration, classes)
+        mappingContext.setValidatorRegistry(new DefaultValidatorRegistry(mappingContext, configuration))
+        return mappingContext
     }
 
     /**

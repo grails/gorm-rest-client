@@ -9,6 +9,7 @@ import grails.http.MediaType
 import io.reactivex.netty.protocol.http.client.HttpClientRequest
 import org.grails.datastore.mapping.core.DatastoreUtils
 import org.grails.datastore.rx.rest.RxRestDatastoreClient
+import org.grails.datastore.rx.rest.config.Settings
 import org.springframework.core.env.PropertyResolver
 import spock.lang.AutoCleanup
 import spock.lang.Shared
@@ -20,9 +21,10 @@ import spock.lang.Specification
 class GithubReleaseSpec extends Specification {
 
     @Shared PropertyResolver configuration = DatastoreUtils.createPropertyResolver(
-            (RxRestDatastoreClient.SETTING_HOST): "https://api.github.com",
-            (RxRestDatastoreClient.SETTING_LOG_LEVEL): "TRACE",
-            (RxRestDatastoreClient.SETTING_INTERCEPTORS):OauthInterceptor.name
+            (Settings.SETTING_HOST): "https://api.github.com",
+            (Settings.SETTING_LOG_LEVEL): "TRACE",
+            (Settings.SETTING_INTERCEPTORS):OauthInterceptor.name,
+            (Settings.SETTING_ALLOW_BLOCKING_OPERATIONS):true
     )
     @Shared @AutoCleanup RxRestDatastoreClient client = new RxRestDatastoreClient(configuration, Release)
 

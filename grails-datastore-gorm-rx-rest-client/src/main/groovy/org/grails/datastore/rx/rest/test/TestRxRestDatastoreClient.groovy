@@ -3,8 +3,11 @@ package org.grails.datastore.rx.rest.test
 import grails.http.client.builder.HttpRequestBuilder
 import grails.http.client.test.HttpTestServer
 import grails.http.client.test.TestHttpServerRequestBuilder
+import groovy.transform.CompileDynamic
 import groovy.transform.CompileStatic
+import org.grails.datastore.mapping.core.DatastoreUtils
 import org.grails.datastore.rx.rest.RxRestDatastoreClient
+import org.grails.datastore.rx.rest.config.Settings
 import org.springframework.core.env.PropertyResolver
 
 /**
@@ -44,13 +47,15 @@ class TestRxRestDatastoreClient extends RxRestDatastoreClient {
         super(initializeTestClient(), configuration, classes)
     }
 
+    @CompileDynamic
     TestRxRestDatastoreClient(Class... classes) {
-        super(initializeTestClient(), classes)
+        super(initializeTestClient(), DatastoreUtils.createPropertyResolver((Settings.SETTING_ALLOW_BLOCKING_OPERATIONS):true), classes)
     }
 
-    protected static SocketAddress initializeTestClient() {
+    protected static String initializeTestClient() {
         httpTestServer = new HttpTestServer()
-        return httpTestServer.socketAddress
+        def address = (InetSocketAddress) httpTestServer.socketAddress
+        return "http://localhost:$address.port"
     }
 
     HttpTestServer getHttpTestServer() {
