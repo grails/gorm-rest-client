@@ -37,8 +37,8 @@ class RestConnectionSourceFactory implements ConnectionSourceFactory<ConnectionP
         }
 
         if (hosts.size() == 1) {
-            if (settings.options != null) {
-                connectionProviderFactory = SingleHostPoolingProviderFactory.create(settings.options.build())
+            if (settings.pool.options != null) {
+                connectionProviderFactory = SingleHostPoolingProviderFactory.create(settings.pool.options.build())
             } else {
                 connectionProviderFactory = SingleHostPoolingProviderFactory.create(new PoolConfig())
             }

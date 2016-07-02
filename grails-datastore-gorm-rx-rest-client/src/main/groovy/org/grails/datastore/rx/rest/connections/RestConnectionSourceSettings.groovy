@@ -70,11 +70,6 @@ class RestConnectionSourceSettings extends ConnectionSourceSettings implements S
     List interceptors = []
 
     /**
-     * The query type to use
-     */
-    Class<? extends SimpleRxRestQuery> queryType = SimpleRxRestQuery
-
-    /**
      * The default method to use for updates. Defaults to PUT
      */
     HttpMethod defaultUpdateMethod = HttpMethod.PUT
@@ -100,10 +95,9 @@ class RestConnectionSourceSettings extends ConnectionSourceSettings implements S
     Long sslSessionTimeout = -1L
 
     /**
-     * Pool config options
+     * Settings for the connection pool
      */
-    PoolConfigBuilder options
-
+    PoolSettings pool = new PoolSettings()
     /**
      * The http proxies to use
      */
@@ -177,6 +171,14 @@ class RestConnectionSourceSettings extends ConnectionSourceSettings implements S
 
     }
 
+    @AutoClone
+    @Builder(builderStrategy = SimpleStrategy, prefix = '')
+    static class PoolSettings {
+        /**
+         * Pool config options
+         */
+        PoolConfigBuilder options
+    }
 
     @AutoClone
     @Builder(builderStrategy = SimpleStrategy, prefix = '')

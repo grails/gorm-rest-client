@@ -236,7 +236,7 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient implements CodecsR
         RestConnectionSourceSettings settings = defaultConnectionSource.settings
 
         List<String> hosts = settings.hosts
-        this.isSecure = hosts.any { String o -> o.startsWith("https") }
+        this.isSecure = settings.isSecure()
 
         List<SocketAddress> socketAddresses = hosts.collect() { String host ->
             URI uri = new URI(host)
@@ -246,7 +246,7 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient implements CodecsR
 
 
         def hostUri = new URI(hosts.find { String o -> o })
-        def proxyList = ProxySelector.getDefault()?.select(hostUri)?.findAll { Proxy proxy -> proxy.type() != Proxy.Type.DIRECT }
+        def proxyList = settings.proxies ?: ProxySelector.getDefault()?.select(hostUri)?.findAll { Proxy proxy -> proxy.type() != Proxy.Type.DIRECT }
         this.proxies = proxyList ?: null
 
         this.sslProvider = settings.sslProvider
