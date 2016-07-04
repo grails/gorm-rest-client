@@ -132,6 +132,7 @@ class RestConnectionSourceSettings extends ConnectionSourceSettings implements S
      */
     void host(String host) {
         if(host != null) {
+            hosts.clear()
             hosts.add(host)
         }
     }

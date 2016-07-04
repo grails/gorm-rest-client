@@ -1,24 +1,23 @@
 package grails.gorm.rx.rest
 
-import grails.gorm.rx.DetachedCriteria
 import grails.gorm.rx.RxEntity
+import grails.gorm.rx.api.RxGormAllOperations
+import grails.gorm.rx.rest.api.RxRestGormAllOperations
+import grails.gorm.rx.rest.api.RxRestGormOperations
 import grails.gorm.rx.rest.interceptor.ExistingClosureRequestBuilderInteceptor
 import grails.gorm.rx.rest.interceptor.RequestBuilderInterceptor
 import grails.http.HttpMethod
 import grails.http.client.builder.HttpClientRequestBuilder
 import groovy.transform.CompileStatic
-import io.reactivex.netty.protocol.http.client.HttpClientRequest
 import org.bson.codecs.Codec
-import org.grails.datastore.bson.json.JsonReader
 import org.grails.datastore.bson.json.JsonWriter
 import org.grails.datastore.gorm.schemaless.DynamicAttributes
 import org.grails.datastore.rx.bson.codecs.RxBsonPersistentEntityCodec
-import org.grails.datastore.rx.rest.RestEndpointPersistentEntity
 import org.grails.datastore.rx.rest.RxRestDatastoreClient
+import org.grails.datastore.rx.rest.api.RxRestGormInstanceApi
 import org.grails.datastore.rx.rest.api.RxRestGormStaticApi
 import org.grails.datastore.rx.rest.config.Settings
 import org.grails.gorm.rx.api.RxGormEnhancer
-import org.grails.gorm.rx.api.RxGormStaticApi
 import rx.Observable
 
 /**
@@ -28,7 +27,7 @@ import rx.Observable
  * @since 1.0
  */
 @CompileStatic
-trait RxRestEntity<D> implements RxEntity<D>, DynamicAttributes {
+trait RxRestEntity<D> implements RxEntity<D>, DynamicAttributes, RxRestGormOperations<D> {
 
     /**
      * @return Convert this object to a JSON string
@@ -51,6 +50,7 @@ trait RxRestEntity<D> implements RxEntity<D>, DynamicAttributes {
         Codec<Object> codec = (Codec<Object>)client.codecRegistry.get(getClass())
         codec.encode(new JsonWriter(writer),(Object)this, RxBsonPersistentEntityCodec.DEFAULT_ENCODER_CONTEXT)
     }
+
     /**
      * Save an entity using the given closure to customize the request
      *
@@ -58,7 +58,7 @@ trait RxRestEntity<D> implements RxEntity<D>, DynamicAttributes {
      * @return An observable
      */
     Observable<D> save(@DelegatesTo(HttpClientRequestBuilder) Closure callable) {
-        return RxEntity.super.save(interceptor: createInterceptor(callable))
+        currentRestInstanceApi().save((D)this, callable)
     }
 
     /**
@@ -68,7 +68,7 @@ trait RxRestEntity<D> implements RxEntity<D>, DynamicAttributes {
      * @return An observable
      */
     Observable<D> patch(@DelegatesTo(HttpClientRequestBuilder) Closure callable = null) {
-        return patch([:], callable)
+        currentRestInstanceApi().patch((D)this, callable)
     }
 
     /**
@@ -78,12 +78,7 @@ trait RxRestEntity<D> implements RxEntity<D>, DynamicAttributes {
      * @return An observable
      */
     Observable<D> patch(Map arguments, @DelegatesTo(HttpClientRequestBuilder) Closure callable = null) {
-        arguments = arguments == null ? [:] : arguments
-        arguments.put(Settings.ARGUMENT_METHOD, HttpMethod.PATCH)
-        if(callable != null) {
-            arguments.put(Settings.ARGUMENT_INTERCEPTOR, createInterceptor(callable))
-        }
-        return RxEntity.super.save(arguments)
+        currentRestInstanceApi().patch((D)this, arguments, callable)
     }
 
     /**
@@ -93,7 +88,7 @@ trait RxRestEntity<D> implements RxEntity<D>, DynamicAttributes {
      * @return An observable
      */
     Observable<D> post(@DelegatesTo(HttpClientRequestBuilder) Closure callable = null) {
-        return patch([:], callable)
+        currentRestInstanceApi().post((D)this, [:], callable)
     }
 
     /**
@@ -103,12 +98,7 @@ trait RxRestEntity<D> implements RxEntity<D>, DynamicAttributes {
      * @return An observable
      */
     Observable<D> post(Map arguments, @DelegatesTo(HttpClientRequestBuilder) Closure callable = null) {
-        arguments = arguments == null ? [:] : arguments
-        arguments.put(Settings.ARGUMENT_METHOD, HttpMethod.POST)
-        if(callable != null) {
-            arguments.put(Settings.ARGUMENT_INTERCEPTOR, createInterceptor(callable))
-        }
-        return RxEntity.super.save(arguments)
+        currentRestInstanceApi().post((D)this, arguments, callable)
     }
     /**
      * Delete an entity using the given closure to customize the request
@@ -117,7 +107,7 @@ trait RxRestEntity<D> implements RxEntity<D>, DynamicAttributes {
      * @return An observable
      */
     Observable<Boolean> delete(@DelegatesTo(HttpClientRequestBuilder) Closure callable) {
-        return RxEntity.super.delete(interceptor: createInterceptor(callable))
+        return currentRestInstanceApi().delete((D)this, [interceptor: createInterceptor(callable)])
     }
 
     /**
@@ -127,7 +117,7 @@ trait RxRestEntity<D> implements RxEntity<D>, DynamicAttributes {
      * @return An observable
      */
     Observable<D> insert(@DelegatesTo(HttpClientRequestBuilder) Closure callable) {
-        return RxEntity.super.insert(interceptor: createInterceptor(callable))
+        return currentRestInstanceApi().insert((D)this, [interceptor: createInterceptor(callable)])
     }
 
 
@@ -139,7 +129,7 @@ trait RxRestEntity<D> implements RxEntity<D>, DynamicAttributes {
      */
     Observable<D> insert(Map arguments, @DelegatesTo(HttpClientRequestBuilder) Closure callable) {
         arguments.interceptor = createInterceptor(callable)
-        return RxEntity.super.insert(arguments)
+        return currentRestInstanceApi().insert((D)this, arguments)
     }
 
     /**
@@ -150,7 +140,7 @@ trait RxRestEntity<D> implements RxEntity<D>, DynamicAttributes {
      */
     Observable<D> save(Map arguments, @DelegatesTo(HttpClientRequestBuilder) Closure callable) {
         arguments.interceptor = createInterceptor(callable)
-        return RxEntity.super.save(arguments)
+        return currentRestInstanceApi().save((D)this, arguments)
 
     }
 
@@ -162,7 +152,7 @@ trait RxRestEntity<D> implements RxEntity<D>, DynamicAttributes {
      */
     Observable<Boolean> delete(Map arguments, @DelegatesTo(HttpClientRequestBuilder) Closure callable) {
         arguments.interceptor = createInterceptor(callable)
-        return RxEntity.super.delete(arguments)
+        return currentRestInstanceApi().delete((D)this, arguments)
     }
 
     /**
@@ -171,7 +161,7 @@ trait RxRestEntity<D> implements RxEntity<D>, DynamicAttributes {
      * @param json The JSON string
      * @return The object
      */
-    static D fromJson(String json) {
+    static Observable<D> fromJson(String json) {
         fromJson((Reader)new StringReader(json))
     }
 
@@ -181,13 +171,8 @@ trait RxRestEntity<D> implements RxEntity<D>, DynamicAttributes {
      * @param reader The reader
      * @return The object
      */
-    static D fromJson(Reader reader) {
-        RxRestGormStaticApi restStaticApi = currentRestStaticApi()
-
-        RxRestDatastoreClient client = (RxRestDatastoreClient) restStaticApi.datastoreClient
-        Codec<D> codec = (Codec<D>)client.codecRegistry.get(getClass())
-
-        return codec.decode(new JsonReader(reader), RxBsonPersistentEntityCodec.DEFAULT_DECODER_CONTEXT)
+    static Observable<D> fromJson(Reader reader) {
+        return (Observable<D>)currentRestStaticApi().fromJson(reader)
     }
 
     /**
@@ -197,7 +182,7 @@ trait RxRestEntity<D> implements RxEntity<D>, DynamicAttributes {
      * @return An observable
      */
     static Observable<D> get(Serializable id, @DelegatesTo(HttpClientRequestBuilder) Closure callable) {
-        (Observable<D>)currentRestStaticApi().get(id, [interceptor:createInterceptor(callable)])
+        (Observable<D>)currentRestStaticApi().get(id, callable)
     }
     /**
      * Retrieve an instance by id
@@ -206,8 +191,7 @@ trait RxRestEntity<D> implements RxEntity<D>, DynamicAttributes {
      * @return An observable
      */
     static Observable<D> get(Serializable id, Map arguments, @DelegatesTo(HttpClientRequestBuilder) Closure callable) {
-        arguments.interceptor = createInterceptor(callable)
-        (Observable<D>) currentRestStaticApi().get(id, arguments)
+        (Observable<D>) currentRestStaticApi().get(id, arguments, callable)
     }
 
     /**
@@ -216,7 +200,7 @@ trait RxRestEntity<D> implements RxEntity<D>, DynamicAttributes {
      * @return An observable with all results
      */
     static Observable<List<D>> list(@DelegatesTo(HttpClientRequestBuilder) Closure callable) {
-        (Observable<List<D>>)currentRestStaticApi().list(interceptor:createInterceptor(callable))
+        (Observable<List<D>>)currentRestStaticApi().list(Collections.emptyMap(), callable)
     }
 
     /**
@@ -225,7 +209,7 @@ trait RxRestEntity<D> implements RxEntity<D>, DynamicAttributes {
      * @return An observable with all results
      */
     static Observable<D> findAll( @DelegatesTo(HttpClientRequestBuilder) Closure callable ) {
-        (Observable<D>)currentRestStaticApi().findAll(interceptor:createInterceptor(callable))
+        (Observable<D>)currentRestStaticApi().findAll(Collections.emptyMap(), callable)
     }
 
     /**
@@ -234,8 +218,7 @@ trait RxRestEntity<D> implements RxEntity<D>, DynamicAttributes {
      * @return An observable with all results
      */
     static Observable<D> findAll(Map args,  @DelegatesTo(HttpClientRequestBuilder) Closure callable) {
-        args.interceptor = createInterceptor(callable)
-        currentRestStaticApi().findAll(args)
+        currentRestStaticApi().findAll(args, callable)
     }
 
     /**
@@ -244,8 +227,7 @@ trait RxRestEntity<D> implements RxEntity<D>, DynamicAttributes {
      * @return An observable with all results
      */
     static Observable<List<D>> list(Map args, @DelegatesTo(HttpClientRequestBuilder) Closure callable) {
-        args.interceptor = createInterceptor(callable)
-        (Observable<List<D>>)currentRestStaticApi().list(args)
+        return (Observable<List<D>>)currentRestStaticApi().list(args, callable)
     }
 
 
@@ -276,11 +258,29 @@ trait RxRestEntity<D> implements RxEntity<D>, DynamicAttributes {
         currentRestStaticApi().whereAny callable
     }
 
+    /**
+     * Switches to given named connection within the context of the closure. The delegate of the closure is used to resolve
+     * operations against the connection.
+     *
+     * @param connectionName The name of the connection
+     * @param callable The closure
+     * @return
+     */
+    static <T> T withConnection(String connectionName, @DelegatesTo(RxRestGormAllOperations) Closure<T> callable ) {
+        def staticOperations = (RxGormAllOperations<D>) RxGormEnhancer.findStaticApi(this, connectionName)
+        callable.setDelegate(staticOperations)
+        return callable.call()
+    }
+
     private static RequestBuilderInterceptor createInterceptor(Closure callable) {
         return new ExistingClosureRequestBuilderInteceptor(callable)
     }
 
-    private static RxRestGormStaticApi<RxRestEntity> currentRestStaticApi() {
+    private static RxRestGormStaticApi<D> currentRestStaticApi() {
         (RxRestGormStaticApi)RxGormEnhancer.findStaticApi(this)
+    }
+
+    private static RxRestGormInstanceApi<D> currentRestInstanceApi() {
+        (RxRestGormInstanceApi)RxGormEnhancer.findInstanceApi(this)
     }
 }

@@ -52,7 +52,7 @@ class HttpTestServer implements Closeable {
                 FullHttpRequest fullHttpRequest = requestBuilder.expectedFullRequests[requestCount]
                 List inboundBodies = requestBuilder.inboundBodies
 
-                if(fullHttpRequest.content().array().length > 0) {
+                if(fullHttpRequest != null && fullHttpRequest.content().array().length > 0) {
 
                     return request.content.switchMap { Object content ->
                         if(content instanceof ByteBuf) {

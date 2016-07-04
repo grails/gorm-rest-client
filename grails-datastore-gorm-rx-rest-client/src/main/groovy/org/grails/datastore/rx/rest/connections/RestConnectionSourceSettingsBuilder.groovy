@@ -10,12 +10,13 @@ import org.springframework.core.env.PropertyResolver
  */
 @CompileStatic
 class RestConnectionSourceSettingsBuilder extends ConfigurationBuilder<RestConnectionSourceSettings, RestConnectionSourceSettings> {
-    RestConnectionSourceSettingsBuilder(PropertyResolver propertyResolver, String configurationPrefix) {
-        super(propertyResolver, configurationPrefix)
+
+    RestConnectionSourceSettingsBuilder(PropertyResolver propertyResolver, String configurationPrefix, RestConnectionSourceSettings fallback = null) {
+        super(propertyResolver, configurationPrefix, fallback)
     }
 
-    RestConnectionSourceSettingsBuilder(PropertyResolver propertyResolver) {
-        super(propertyResolver, Settings.PREFIX)
+    RestConnectionSourceSettingsBuilder(PropertyResolver propertyResolver, RestConnectionSourceSettings fallback = null) {
+        super(propertyResolver, Settings.PREFIX, fallback)
     }
 
     @Override

@@ -52,6 +52,7 @@ import org.grails.datastore.mapping.core.connections.ConnectionSources
 import org.grails.datastore.mapping.core.connections.ConnectionSourcesInitializer
 import org.grails.datastore.mapping.core.connections.DefaultConnectionSource
 import org.grails.datastore.mapping.core.connections.InMemoryConnectionSources
+import org.grails.datastore.mapping.core.connections.SingletonConnectionSources
 import org.grails.datastore.mapping.model.DatastoreConfigurationException
 import org.grails.datastore.mapping.model.PersistentEntity
 import org.grails.datastore.mapping.query.Query
@@ -59,9 +60,11 @@ import org.grails.datastore.mapping.reflect.EntityReflector
 import org.grails.datastore.mapping.validation.ValidationErrors
 import org.grails.datastore.mapping.validation.ValidationException
 import org.grails.datastore.rx.AbstractRxDatastoreClient
+import org.grails.datastore.rx.RxDatastoreClient
 import org.grails.datastore.rx.batch.BatchOperation
 import org.grails.datastore.rx.bson.CodecsRxDatastoreClient
 import org.grails.datastore.rx.query.QueryState
+import org.grails.datastore.rx.rest.api.RxRestGormInstanceApi
 import org.grails.datastore.rx.rest.api.RxRestGormStaticApi
 import org.grails.datastore.rx.rest.codecs.ContextAwareCodec
 import org.grails.datastore.rx.rest.config.PoolConfigBuilder
@@ -73,6 +76,7 @@ import org.grails.datastore.rx.rest.connections.RestConnectionSourceSettingsBuil
 import org.grails.datastore.rx.rest.query.BsonRxRestQuery
 import org.grails.datastore.rx.rest.query.SimpleRxRestQuery
 import org.grails.gorm.rx.api.RxGormEnhancer
+import org.grails.gorm.rx.api.RxGormInstanceApi
 import org.grails.gorm.rx.api.RxGormStaticApi
 import org.springframework.core.convert.converter.Converter
 import org.springframework.core.env.PropertyResolver
@@ -229,7 +233,7 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient implements CodecsR
 
     final RestConnectionSourceSettings settings
 
-    RxRestDatastoreClient(ConnectionSources<ConnectionProviderFactory, RestConnectionSourceSettings> connectionSources, PropertyResolver configuration, RestClientMappingContext mappingContext) {
+    RxRestDatastoreClient(ConnectionSources<ConnectionProviderFactory, RestConnectionSourceSettings> connectionSources, RestClientMappingContext mappingContext) {
         super(connectionSources, mappingContext)
 
         ConnectionSource<ConnectionProviderFactory, RestConnectionSourceSettings> defaultConnectionSource = connectionSources.defaultConnectionSource
@@ -299,11 +303,30 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient implements CodecsR
         defaultParameterNames.add(queryParameter)
         defaultParameterNames.add(expandParameter)
 
+        if(!(connectionSources instanceof SingletonConnectionSources)) {
+            for(ConnectionSource<ConnectionProviderFactory, RestConnectionSourceSettings> connectionSource in connectionSources) {
+                if(connectionSource.name == ConnectionSource.DEFAULT) continue
+
+                SingletonConnectionSources<ConnectionProviderFactory, RestConnectionSourceSettings> singletonConnectionSources = new SingletonConnectionSources<>(connectionSource, connectionSources.baseConfiguration)
+                RxRestDatastoreClient delegatingClient = createChildClient(singletonConnectionSources)
+
+                datastoreClients.put(connectionSource.name, (RxDatastoreClient)delegatingClient)
+            }
+        }
         initialize(mappingContext)
     }
 
+    protected RxRestDatastoreClient createChildClient(SingletonConnectionSources<ConnectionProviderFactory, RestConnectionSourceSettings> singletonConnectionSources) {
+        new RxRestDatastoreClient(singletonConnectionSources, getMappingContext()) {
+            @Override
+            protected void initialize(RestClientMappingContext mc) {
+                // no-op
+            }
+        }
+    }
+
     RxRestDatastoreClient(ConnectionSources<ConnectionProviderFactory, RestConnectionSourceSettings> connectionSources, Class... classes) {
-        this(connectionSources, connectionSources.baseConfiguration, createMappingContext(connectionSources.baseConfiguration, classes))
+        this(connectionSources, createMappingContext(connectionSources.baseConfiguration, classes))
     }
     RxRestDatastoreClient(Iterable<String> hosts, PropertyResolver configuration, Class... classes) {
         this(createDefaultConnectionSourcesForHosts(hosts, configuration), classes)
@@ -318,7 +341,7 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient implements CodecsR
         this(createDefaultConnectionSourcesForHosts([host], DatastoreUtils.createPropertyResolver(null)), classes)
     }
     RxRestDatastoreClient(PropertyResolver configuration, Class... classes) {
-        this(ConnectionSourcesInitializer.create(new RestConnectionSourceFactory(), configuration), configuration, createMappingContext(configuration, classes))
+        this(ConnectionSourcesInitializer.create(new RestConnectionSourceFactory(), configuration), createMappingContext(configuration, classes))
     }
     RxRestDatastoreClient(Class... classes) {
         this(DatastoreUtils.createPropertyResolver(null), classes)
@@ -333,7 +356,7 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient implements CodecsR
     Observable<Number> batchDelete(BatchOperation operation) {
         Map operationArguments = operation.arguments
         HttpClient httpClient = createHttpClient(operationArguments)
-        List<HttpClientRequest> observables = []
+        List<Observable<HttpClientResponse>> observables = []
 
         for (PersistentEntity entity in operation.deletes.keySet()) {
             RestEndpointPersistentEntity restEndpointPersistentEntity = (RestEndpointPersistentEntity)entity
@@ -348,7 +371,13 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient implements CodecsR
                 HttpClientRequest requestObservable = httpClient
                         .createDelete(uri)
 
-                observables.add requestObservable
+                InterceptorContext context = new InterceptorContext(restEndpointPersistentEntity, (RxEntity)object)
+                Observable<HttpClientResponse> deleteObservable = prepareRequest( requestObservable, context )
+                def interceptorArgument = operationArguments.interceptor
+                if(interceptorArgument instanceof RequestInterceptor) {
+                    deleteObservable = ((RequestInterceptor)interceptorArgument).intercept(deleteObservable, context)
+                }
+                observables.add deleteObservable
             }
         }
         if (observables.isEmpty()) {
@@ -770,8 +799,13 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient implements CodecsR
     }
 
     @Override
-    RxGormStaticApi createStaticApi(PersistentEntity entity, String connectionSourceName) {
-        return new RxRestGormStaticApi(entity, this)
+    RxRestGormStaticApi createStaticApi(PersistentEntity entity, String connectionSourceName) {
+        return new RxRestGormStaticApi(entity, getDatastoreClient(connectionSourceName))
+    }
+
+    @Override
+    RxRestGormInstanceApi createInstanceApi(PersistentEntity entity, String connectionSourceName) {
+        return new RxRestGormInstanceApi(entity, getDatastoreClient(connectionSourceName))
     }
 
     @Override

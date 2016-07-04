@@ -20,9 +20,9 @@ import org.springframework.core.env.PropertyResolver
 @CompileStatic
 class RestConnectionSourceFactory implements ConnectionSourceFactory<ConnectionProviderFactory, RestConnectionSourceSettings> {
     @Override
-    ConnectionSource<ConnectionProviderFactory, RestConnectionSourceSettings> create(String name, PropertyResolver configuration) {
+    ConnectionSource<ConnectionProviderFactory, RestConnectionSourceSettings> create(String name, PropertyResolver configuration, RestConnectionSourceSettings fallback = null) {
         String prefix = ConnectionSource.DEFAULT == name ? Settings.PREFIX : Settings.SETTING_CONNECTIONS + ".$name"
-        RestConnectionSourceSettingsBuilder settingsBuilder = new RestConnectionSourceSettingsBuilder(configuration, prefix)
+        RestConnectionSourceSettingsBuilder settingsBuilder = new RestConnectionSourceSettingsBuilder(configuration, prefix, fallback)
         RestConnectionSourceSettings settings = settingsBuilder.build()
 
         return create( name, settings )
@@ -45,7 +45,11 @@ class RestConnectionSourceFactory implements ConnectionSourceFactory<ConnectionP
         } else {
             connectionProviderFactory = LoadBalancerFactory.create(settings.loadBalanceStrategy)
         }
-        return new DefaultConnectionSource<ConnectionProviderFactory, RestConnectionSourceSettings>(name, connectionProviderFactory, settings);
+        return create(name, connectionProviderFactory, settings);
+    }
+
+    protected DefaultConnectionSource<ConnectionProviderFactory, RestConnectionSourceSettings> create(String name, ConnectionProviderFactory connectionProviderFactory, RestConnectionSourceSettings settings) {
+        return new DefaultConnectionSource<ConnectionProviderFactory, RestConnectionSourceSettings>(name, connectionProviderFactory, settings)
     }
 
     @Override
