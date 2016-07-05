@@ -2,6 +2,7 @@ package org.grails.datastore.rx.rest.connections
 
 import groovy.transform.CompileStatic
 import org.grails.datastore.mapping.config.ConfigurationBuilder
+import org.grails.datastore.mapping.core.connections.ConnectionSourceSettings
 import org.grails.datastore.rx.rest.config.Settings
 import org.springframework.core.env.PropertyResolver
 
@@ -11,11 +12,11 @@ import org.springframework.core.env.PropertyResolver
 @CompileStatic
 class RestConnectionSourceSettingsBuilder extends ConfigurationBuilder<RestConnectionSourceSettings, RestConnectionSourceSettings> {
 
-    RestConnectionSourceSettingsBuilder(PropertyResolver propertyResolver, String configurationPrefix, RestConnectionSourceSettings fallback = null) {
+    RestConnectionSourceSettingsBuilder(PropertyResolver propertyResolver, String configurationPrefix, ConnectionSourceSettings fallback = null) {
         super(propertyResolver, configurationPrefix, fallback)
     }
 
-    RestConnectionSourceSettingsBuilder(PropertyResolver propertyResolver, RestConnectionSourceSettings fallback = null) {
+    RestConnectionSourceSettingsBuilder(PropertyResolver propertyResolver, ConnectionSourceSettings fallback = null) {
         super(propertyResolver, Settings.PREFIX, fallback)
     }
 

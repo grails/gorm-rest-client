@@ -7,6 +7,7 @@ import io.reactivex.netty.client.pool.PoolConfig
 import io.reactivex.netty.client.pool.SingleHostPoolingProviderFactory
 import org.grails.datastore.mapping.core.connections.ConnectionSource
 import org.grails.datastore.mapping.core.connections.ConnectionSourceFactory
+import org.grails.datastore.mapping.core.connections.ConnectionSourceSettings
 import org.grails.datastore.mapping.core.connections.DefaultConnectionSource
 import org.grails.datastore.rx.rest.config.Settings
 import org.springframework.core.env.PropertyResolver
@@ -19,10 +20,11 @@ import org.springframework.core.env.PropertyResolver
  */
 @CompileStatic
 class RestConnectionSourceFactory implements ConnectionSourceFactory<ConnectionProviderFactory, RestConnectionSourceSettings> {
+
     @Override
-    ConnectionSource<ConnectionProviderFactory, RestConnectionSourceSettings> create(String name, PropertyResolver configuration, RestConnectionSourceSettings fallback = null) {
+    def <F extends ConnectionSourceSettings> ConnectionSource<ConnectionProviderFactory, RestConnectionSourceSettings> create(String name, PropertyResolver configuration, F fallbackSettings = null) {
         String prefix = ConnectionSource.DEFAULT == name ? Settings.PREFIX : Settings.SETTING_CONNECTIONS + ".$name"
-        RestConnectionSourceSettingsBuilder settingsBuilder = new RestConnectionSourceSettingsBuilder(configuration, prefix, fallback)
+        RestConnectionSourceSettingsBuilder settingsBuilder = new RestConnectionSourceSettingsBuilder(configuration, prefix, fallbackSettings)
         RestConnectionSourceSettings settings = settingsBuilder.build()
 
         return create( name, settings )
