@@ -32,5 +32,23 @@ class DeleteSpec extends RxGormSpec {
         then:"The result is correct"
         mock.verify()
         deleted
+
+        when:
+        mock.reset()
+        mock.expect {
+            uri '/people/2'
+            method "DELETE"
+        }.respond {
+            noContent()
+        }
+
+        p = new Person(name: "Fred", age: 10, dateOfBirth: date)
+        p.id = 2L
+        deleted = p.delete().toBlocking().first()
+
+        then:"The result is correct"
+        mock.verify()
+        deleted
+
     }
 }
