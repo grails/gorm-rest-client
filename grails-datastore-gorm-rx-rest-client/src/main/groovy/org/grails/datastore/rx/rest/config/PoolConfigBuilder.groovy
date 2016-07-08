@@ -21,6 +21,10 @@ class PoolConfigBuilder extends ConfigurationBuilder<PoolConfig, PoolConfig> {
         super(propertyResolver, Settings.SETTING_POOL_OPTIONS)
     }
 
+    PoolConfigBuilder(PropertyResolver propertyResolver, String configurationPrefix, Object fallBackConfiguration) {
+        super(propertyResolver, configurationPrefix, fallBackConfiguration)
+    }
+
     @Override
     protected PoolConfig createBuilder() {
         return new PoolConfig()

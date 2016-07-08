@@ -9,16 +9,12 @@ import io.netty.handler.ssl.SslContext
 import io.netty.handler.ssl.SslProvider
 import io.netty.handler.ssl.util.InsecureTrustManagerFactory
 import io.reactivex.netty.client.loadbalancer.LoadBalancingStrategy
-import io.reactivex.netty.client.pool.PoolConfig
 import io.reactivex.netty.protocol.http.client.loadbalancer.EWMABasedP2CStrategy
 import org.grails.datastore.mapping.core.connections.ConnectionSourceSettings
 import org.grails.datastore.rx.rest.config.PoolConfigBuilder
 import org.grails.datastore.rx.rest.config.Settings
-import org.grails.datastore.rx.rest.query.SimpleRxRestQuery
 
 import javax.net.ssl.TrustManagerFactory
-import java.lang.reflect.Parameter
-
 /**
  * Settings for RxGORM for REST
  *
