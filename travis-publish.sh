@@ -43,40 +43,38 @@ if [[ $TRAVIS_REPO_SLUG == "grails/gorm-rest-client" && $TRAVIS_PULL_REQUEST == 
 
     git clone https://${GH_TOKEN}@github.com/grails/grails-data-mapping.git -b gh-pages gh-pages --single-branch > /dev/null
     cd gh-pages
-    mkdir -p rx/rest-client
-    cd rx/rest-client
 
     if [[ -n $TRAVIS_TAG ]]; then
         version="$TRAVIS_TAG"
         version=${version:1}
 
-         mkdir -p latest
-         cp -r ../../../docs/build/docs/. ./latest/
-         git add latest/*
+         mkdir -p latest/rx/rest-client
+         cp -r ../docs/build/docs/. ./latest/rx/rest-client
+         git add latest/rx/rest-client/*
 
         majorVersion=${version:0:4}
         majorVersion="${majorVersion}x"
 
-        mkdir -p "$version"
-        cp -r ../../../docs/build/docs/. "./$version/"
-        git add "$version/*"
+        mkdir -p "$version/rx/rest-client"
+        cp -r ../docs/build/docs/. "./$version/rx/rest-client"
+        git add "$version/rx/rest-client/*"
 
-        mkdir -p "$majorVersion"
-        cp -r ../../../docs/build/docs/. "./$majorVersion/"
-        git add "$majorVersion/*"
+        mkdir -p "$majorVersion/rx/rest-client"
+        cp -r ../docs/build/docs/. "./$majorVersion/rx/rest-client"
+        git add "$majorVersion/rx/rest-client/*"
 
     else
         # If this is the master branch then update the snapshot
-        mkdir -p snapshot
-        cp -r ../../../docs/build/docs/. ./snapshot/
+        mkdir -p snapshot/rx
+        cp -r ../docs/build/docs/. ./snapshot/rx/rest-client
 
-        git add snapshot/*
+        git add snapshot/rx/*
     fi
 
 
     git commit -a -m "Updating docs for Travis build: https://travis-ci.org/$TRAVIS_REPO_SLUG/builds/$TRAVIS_BUILD_ID"
     git push origin HEAD
-    cd ../../..
+    cd ..
     rm -rf gh-pages
   fi
 
