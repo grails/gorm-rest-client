@@ -35,7 +35,7 @@ class SaveSpec extends RxGormSpec {
 
         when:"A get request is issued"
         Person p = new Person(name: "Fred")
-        p.save().toBlocking().first()
+        p.save(validate:false).toBlocking().first()
 
         then:"The result is correct"
         thrown(ValidationException)
@@ -66,7 +66,7 @@ class SaveSpec extends RxGormSpec {
         }
 
         when:"A get request is issued"
-        p = p.save().toBlocking().first()
+        p = p.save(validate:false).toBlocking().first()
 
         then:"The result is correct"
         mock.verify()
@@ -99,7 +99,7 @@ class SaveSpec extends RxGormSpec {
 
         when:"A get request is issued"
 
-        p = p.save().toBlocking().first()
+        p = p.save(validate:false).toBlocking().first()
 
         then:"The result is correct"
         mock.verify()
