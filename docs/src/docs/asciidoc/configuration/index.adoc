@@ -55,14 +55,15 @@ grails:
         rest:
             host: http://localhost:8080
             readTimeout: 2000
-            logLevel: TRACE
+            log:
+                level: TRACE
 ----
 
-Then ensure your log configuration enables logging for the `io.netty.handler.logging` package. For example in `logback.groovy`:
+Then ensure your log configuration enables logging for the `grails.gorm.rx.rest.logging` package. For example in `logback.groovy`:
 
 [source,groovy]
 ----
-logger("io.netty.handler.logging", TRACE)
+logger("grails.gorm.rx.rest.logging", TRACE)
 ----
 
 

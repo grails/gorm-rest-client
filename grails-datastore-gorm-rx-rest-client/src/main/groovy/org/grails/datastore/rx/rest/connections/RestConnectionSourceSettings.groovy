@@ -31,10 +31,6 @@ class RestConnectionSourceSettings extends ConnectionSourceSettings implements S
     Integer readTimeout = -1
 
     /**
-     * The default log level
-     */
-    LogLevel logLevel
-    /**
      * The default client host to connect to
      */
     List<String> hosts = []
@@ -110,7 +106,12 @@ class RestConnectionSourceSettings extends ConnectionSourceSettings implements S
     ParameterSettings parameters = new ParameterSettings()
 
     /**
-     * Parameter settings
+     * Log settings
+     */
+    LogSettings log = new LogSettings()
+
+    /**
+     * Query settings
      */
     QuerySettings query = new QuerySettings()
 
@@ -133,6 +134,18 @@ class RestConnectionSourceSettings extends ConnectionSourceSettings implements S
         }
     }
 
+    @AutoClone
+    @Builder(builderStrategy = SimpleStrategy, prefix = '')
+    static class LogSettings {
+        /**
+         * The log level
+         */
+        LogLevel level
+        /**
+         * The logger name
+         */
+        String name = "grails.gorm.rx.rest.logging"
+    }
     @AutoClone
     @Builder(builderStrategy = SimpleStrategy, prefix = '')
     static class ParameterSettings {

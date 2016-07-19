@@ -38,7 +38,12 @@ interface Settings {
     /**
      * The default wire log level
      */
-    String SETTING_LOG_LEVEL        = "${PREFIX}.logLevel"
+    String SETTING_LOG_LEVEL        = "${PREFIX}.log.level"
+
+    /**
+     * The default wire log name
+     */
+    String SETTING_LOG_NAME        = "${PREFIX}.log.name"
 
     /**
      * Configure whether blocking operations are allowed
@@ -155,7 +160,13 @@ interface Settings {
     /**
      * The logLevel argument
      */
-    String ARGUMENT_LOG_LEVEL       = "logLevel"
+    String ARGUMENT_LOGGER_LEVEL = "loggerLevel"
+
+    /**
+     * The logLevel argument
+     */
+    String ARGUMENT_LOGGER_NAME = "loggerName"
+
 
     /**
      * The interceptor argument

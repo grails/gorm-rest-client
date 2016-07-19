@@ -13,7 +13,6 @@ import groovy.transform.CompileStatic
 import groovy.util.logging.Slf4j
 import io.netty.buffer.ByteBuf
 import io.netty.buffer.ByteBufAllocator
-import io.netty.buffer.ByteBufHolder
 import io.netty.buffer.ByteBufInputStream
 import io.netty.buffer.ByteBufOutputStream
 import io.netty.buffer.Unpooled
@@ -30,14 +29,9 @@ import io.netty.handler.ssl.SslProvider
 import io.netty.handler.ssl.util.InsecureTrustManagerFactory
 import io.reactivex.netty.client.ConnectionProviderFactory
 import io.reactivex.netty.client.Host
-import io.reactivex.netty.client.loadbalancer.LoadBalancerFactory
-import io.reactivex.netty.client.loadbalancer.LoadBalancingStrategy
-import io.reactivex.netty.client.pool.PoolConfig
-import io.reactivex.netty.client.pool.SingleHostPoolingProviderFactory
 import io.reactivex.netty.protocol.http.client.HttpClient
 import io.reactivex.netty.protocol.http.client.HttpClientRequest
 import io.reactivex.netty.protocol.http.client.HttpClientResponse
-import io.reactivex.netty.protocol.http.client.loadbalancer.EWMABasedP2CStrategy
 import org.bson.codecs.Codec
 import org.bson.codecs.configuration.CodecRegistry
 import org.grails.datastore.bson.codecs.BsonPersistentEntityCodec
@@ -50,7 +44,6 @@ import org.grails.datastore.mapping.core.DatastoreUtils
 import org.grails.datastore.mapping.core.connections.ConnectionSource
 import org.grails.datastore.mapping.core.connections.ConnectionSources
 import org.grails.datastore.mapping.core.connections.ConnectionSourcesInitializer
-import org.grails.datastore.mapping.core.connections.DefaultConnectionSource
 import org.grails.datastore.mapping.core.connections.InMemoryConnectionSources
 import org.grails.datastore.mapping.core.connections.SingletonConnectionSources
 import org.grails.datastore.mapping.model.DatastoreConfigurationException
@@ -67,7 +60,6 @@ import org.grails.datastore.rx.query.QueryState
 import org.grails.datastore.rx.rest.api.RxRestGormInstanceApi
 import org.grails.datastore.rx.rest.api.RxRestGormStaticApi
 import org.grails.datastore.rx.rest.codecs.ContextAwareCodec
-import org.grails.datastore.rx.rest.config.PoolConfigBuilder
 import org.grails.datastore.rx.rest.config.RestClientMappingContext
 import org.grails.datastore.rx.rest.config.Settings
 import org.grails.datastore.rx.rest.connections.RestConnectionSourceFactory
@@ -76,8 +68,6 @@ import org.grails.datastore.rx.rest.connections.RestConnectionSourceSettingsBuil
 import org.grails.datastore.rx.rest.query.BsonRxRestQuery
 import org.grails.datastore.rx.rest.query.SimpleRxRestQuery
 import org.grails.gorm.rx.api.RxGormEnhancer
-import org.grails.gorm.rx.api.RxGormInstanceApi
-import org.grails.gorm.rx.api.RxGormStaticApi
 import org.springframework.core.convert.converter.Converter
 import org.springframework.core.env.PropertyResolver
 import org.springframework.validation.Errors
@@ -116,7 +106,12 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient implements CodecsR
     /**
      * The default log level
      */
-    final LogLevel logLevel
+    final LogLevel loggerLevel
+
+    /**
+     * The default log level
+     */
+    final String loggerName
     /**
      * The default client host to connect to
      */
@@ -274,7 +269,8 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient implements CodecsR
         this.charset = Charset.forName( settings.charset )
         this.queryType = (settings.query.type == BSON_QUERY_TYPE) ? BsonRxRestQuery : SimpleRxRestQuery
         this.readTimeout = settings.readTimeout
-        this.logLevel = settings.logLevel
+        this.loggerLevel = settings.log.level
+        this.loggerName = settings.log.name
         this.defaultUpdateMethod = settings.defaultUpdateMethod
         this.connectionProviderFactory = defaultConnectionSource.source
         this.codecRegistry = mappingContext.codecRegistry
@@ -407,11 +403,11 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient implements CodecsR
             httpClient = httpClient.readTimeOut(readTimeout, TimeUnit.MILLISECONDS)
         }
 
-        if(arguments?.containsKey(ARGUMENT_LOG_LEVEL)) {
-            httpClient = httpClient.enableWireLogging(arguments.get(ARGUMENT_LOG_LEVEL) as LogLevel)
+        if(arguments?.containsKey(ARGUMENT_LOGGER_LEVEL)) {
+            httpClient = httpClient.enableWireLogging(loggerName, arguments.get(ARGUMENT_LOGGER_LEVEL) as LogLevel)
         }
-        else if(logLevel != null) {
-            httpClient = httpClient.enableWireLogging(logLevel)
+        else if(loggerLevel != null) {
+            httpClient = httpClient.enableWireLogging(loggerName, loggerLevel)
         }
 
         httpClient = proxies != null ? configureProxy(httpClient) : httpClient
