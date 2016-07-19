@@ -1,6 +1,13 @@
 include "grails-http-core",
         "grails-rx-http-client",
-        "grails-datastore-gorm-rx-rest-client",
-        "rx-plugin",
-        "docs"
+        "grails-datastore-gorm-rx-rest-client"
+
+// plugins
+include "rx-plugin"
+
+// examples
+include "examples/grails31-simple"
+
+// docs
+include "docs"
 

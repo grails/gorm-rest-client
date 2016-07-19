@@ -5,7 +5,7 @@ import grails.gorm.rx.rest.RxRestEntity
 import grails.plugins.Plugin
 import org.grails.core.artefact.DomainClassArtefactHandler
 import org.grails.datastore.rx.rest.RxRestDatastoreClient
-import org.grails.plugins.web.rx.mvc.RxResultTransformer
+import org.grails.plugins.web.rx.mvc.*
 
 /**
  * A Grails plugin for RxGORM for REST

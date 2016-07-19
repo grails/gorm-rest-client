@@ -142,12 +142,13 @@ class SimpleRxRestQuery<T> extends Query implements RxQuery<T> {
                 .switchMap { HttpClientResponse response ->
             response.getContent()
         }.toList().switchMap { List<ByteBuf> objects ->
-            ByteBuf byteBuf = Unpooled.wrappedBuffer(objects as ByteBuf[])
-
             if(singleResult) {
                 def baseObservable = Observable.create({ Subscriber subscriber ->
-                    def reader = new InputStreamReader(new ByteBufInputStream(byteBuf))
+                    ByteBuf byteBuf = null
+                    Reader reader = null
                     try {
+                        byteBuf = Unpooled.wrappedBuffer(objects as ByteBuf[])
+                        reader = new InputStreamReader(new ByteBufInputStream(byteBuf))
                         def decoded = codec.decode(new JsonReader(reader), BsonPersistentEntityCodec.DEFAULT_DECODER_CONTEXT)
                         subscriber.onNext decoded
                     }
@@ -157,8 +158,8 @@ class SimpleRxRestQuery<T> extends Query implements RxQuery<T> {
                     }
                     finally {
                         subscriber.onCompleted()
-                        byteBuf.release()
-                        reader.close()
+                        byteBuf?.release()
+                        reader?.close()
                     }
 
                 } as Observable.OnSubscribe)
@@ -166,14 +167,23 @@ class SimpleRxRestQuery<T> extends Query implements RxQuery<T> {
                 return RxQueryUtils.processFetchStrategies((RxDatastoreClientImplementor)datastoreClient, baseObservable, entity, fetchStrategies, queryState)
             }
             else {
-                byteBuf.retain()
                 long readCount = 0
                 return Observable.create(new AsyncOnSubscribe<JsonReader, T>() {
 
                     @Override
                     protected JsonReader generateState() {
-                        def reader = new InputStreamReader(new ByteBufInputStream(byteBuf))
-                        def jsonReader = new JsonReader(reader)
+                        ByteBuf byteBuf = Unpooled.wrappedBuffer(objects as ByteBuf[])
+                        def reader = new InputStreamReader(new ByteBufInputStream(byteBuf) )
+                        def jsonReader = new JsonReader(reader){
+                            @Override
+                            void close() throws IOException {
+                                try {
+                                    super.close()
+                                } finally {
+                                    byteBuf?.release()
+                                }
+                            }
+                        }
                         BsonType bsonType = jsonReader.readBsonType()
                         if(bsonType == BsonType.ARRAY) {
                             // an array of objects
@@ -217,7 +227,6 @@ class SimpleRxRestQuery<T> extends Query implements RxQuery<T> {
                     @Override
                     protected void onUnsubscribe(JsonReader reader) {
                         reader.close()
-                        byteBuf.release()
                         super.onUnsubscribe(reader)
                     }
 
@@ -247,6 +256,7 @@ class SimpleRxRestQuery<T> extends Query implements RxQuery<T> {
 
                         endOfDocument = bsonType == BsonType.END_OF_DOCUMENT
                         if(endOfDocument) {
+                            jsonReader.close()
                             observer.onCompleted()
                         }
 
