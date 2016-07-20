@@ -27,7 +27,7 @@ dependencies {
         documentation "org.grails:grails-datastore-$p:$gormVersion"
     }
     project.rootProject.subprojects.each { subproject ->
-        if(subproject.name != "docs") {
+        if(subproject.name != "docs" && !subproject.name.startsWith("examples/")) {
             documentation project(":$subproject.name")
         }
     }
@@ -92,7 +92,7 @@ task groovydoc(type:GroovydocTask, dependsOn:fetchSource) {
         }
     }
     project.rootProject.subprojects.each { subproject ->
-        if(subproject.file('src/main/groovy').exists()) {
+        if(subproject.file('src/main/groovy').exists() && !subproject.name.startsWith("examples/")) {
             files += subproject.files("src/main/groovy")
         }
     }
@@ -101,15 +101,12 @@ task groovydoc(type:GroovydocTask, dependsOn:fetchSource) {
     jvmArgs "-Xmx1024m"
 }
 
-task clean(type:Delete) {
-    delete project.buildDir
-}
 task copyResources(type:Copy) {
     from 'src/docs/resources'
     into "${project.buildDir}/docs"
 }
 task docs(dependsOn:[asciidoctor, groovydoc, copyDocs, copyResources] +
-        subprojects.findAll { project -> project.tasks.findByName('groovydoc')}
+        subprojects.findAll { project -> project.tasks.findByName('groovydoc') && !project.name.startsWith("examples/")}
                 .collect { project -> project.tasks.groovydoc }
 )
 
