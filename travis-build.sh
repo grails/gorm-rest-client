@@ -4,7 +4,7 @@ EXIT_STATUS=0
 ./gradlew --stop
 
 
-./gradlew check --refresh-dependencies -no-daemon -i || EXIT_STATUS=$?
+./gradlew check --refresh-dependencies -no-daemon|| EXIT_STATUS=$?
 
 ./gradlew --stop
 

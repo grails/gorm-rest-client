@@ -324,10 +324,10 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient implements CodecsR
     RxRestDatastoreClient(ConnectionSources<ConnectionProviderFactory, RestConnectionSourceSettings> connectionSources, Class... classes) {
         this(connectionSources, createMappingContext(connectionSources.baseConfiguration, classes))
     }
-    RxRestDatastoreClient(Iterable<String> hosts, PropertyResolver configuration, Class... classes) {
+    RxRestDatastoreClient(List<String> hosts, PropertyResolver configuration, Class... classes) {
         this(createDefaultConnectionSourcesForHosts(hosts, configuration), classes)
     }
-    RxRestDatastoreClient(Iterable<String> hosts, Class... classes) {
+    RxRestDatastoreClient(List<String> hosts, Class... classes) {
         this(createDefaultConnectionSourcesForHosts(hosts, DatastoreUtils.createPropertyResolver(null)), classes)
     }
     RxRestDatastoreClient(String host, PropertyResolver configuration, Class... classes) {
@@ -809,10 +809,10 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient implements CodecsR
         getMappingContext().get(clazz, codecRegistry)
     }
 
-    protected static InMemoryConnectionSources<ConnectionProviderFactory, RestConnectionSourceSettings> createDefaultConnectionSourcesForHosts(Iterable<String> hosts, PropertyResolver configuration) {
+    protected static InMemoryConnectionSources<ConnectionProviderFactory, RestConnectionSourceSettings> createDefaultConnectionSourcesForHosts(List<String> hosts, PropertyResolver configuration) {
         RestConnectionSourceSettingsBuilder builder = new RestConnectionSourceSettingsBuilder(configuration)
         RestConnectionSourceSettings settings = builder.build()
-        settings.hosts(hosts.toList())
+        settings.hosts(hosts)
 
         RestConnectionSourceFactory factory = new RestConnectionSourceFactory()
         ConnectionSource<ConnectionProviderFactory, RestConnectionSourceSettings> connectionSource = factory.create(ConnectionSource.DEFAULT, settings)
