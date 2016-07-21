@@ -15,7 +15,7 @@ buildscript {
 
 
 group "org.grails"
-version "1.0.0-SNAPSHOT"
+version "1.0.0.M1"
 println "GORM VERSION = ${project.gormVersion}"
 
 ext {
@@ -310,9 +310,9 @@ class PublishingConvention {
     Project project
 
     String projectArtifactId
-    String projectName = 'GORM REST Client'
-    String projectDescription = 'Provides a GORM Object Mapping implementation for communication with REST web services'
-    String projectURL = 'http://gorm.grails.org/latest/rx/rest-client/'
+    String projectName = 'RxGORM REST Client'
+    String projectDescription = 'Provides a RxGORM Object Mapping implementation for communication with REST web services'
+    String projectURL = 'https://github.com/grails/gorm-rest-client'
     String projectIssueTrackerUrl = 'https://github.com/grails/gorm-rest-client/issues'
     String projectVcsUrl = 'https://github.com/grails/gorm-rest-client'
 
