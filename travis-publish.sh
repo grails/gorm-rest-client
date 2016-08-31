@@ -48,9 +48,9 @@ if [[ $TRAVIS_REPO_SLUG == "grails/gorm-rest-client" && $TRAVIS_PULL_REQUEST == 
         version="$TRAVIS_TAG"
         version=${version:1}
 
-#         mkdir -p latest/rx/rest-client
-#         cp -r ../docs/build/docs/. ./latest/rx/rest-client
-#         git add latest/rx/rest-client/*
+        mkdir -p latest/rx/rest-client
+        cp -r ../docs/build/docs/. ./latest/rx/rest-client
+        git add latest/rx/rest-client/*
 
         majorVersion=${version:0:4}
         majorVersion="${majorVersion}x"
