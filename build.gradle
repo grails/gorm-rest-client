@@ -26,6 +26,8 @@ ext {
     groovyVersion = "2.4.7"
     springBootVersion = "1.3.7.RELEASE"
     springVersion = "4.1.9.RELEASE"
+    hibernatePluginVersion = gormVersion - '.RELEASE'
+    pluginVersion = project.version - '.RELEASE'
     isCiBuild = project.hasProperty("isCiBuild")
     isBuildSnapshot = version.endsWith("-SNAPSHOT")
 
@@ -55,11 +57,13 @@ subprojects { project ->
     boolean isGrails3PluginProject = project.name.endsWith("-plugin") && !project.name.startsWith("grails2")
     boolean isGrails2PluginProject = project.name.endsWith("-plugin") && project.name.startsWith("grails2")
 
-    if(isPluginProject) {
+    if(isPluginProject) {        
         group "org.grails.plugins"
+        version( pluginVersion )
     }
     else {
         group "org.grails"
+        version rootProject.version
     }
 
     version rootProject.version
@@ -116,12 +120,6 @@ subprojects { project ->
         }        
     }
 
-    if(isPluginProject) {
-        group "org.grails.plugins"
-    }
-    else {
-        group "org.grails"        
-    }
 
     if(project.name == 'docs') {
         return

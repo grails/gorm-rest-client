@@ -3,6 +3,6 @@ To use RxGORM for REST within a Grails 3 application add the following dependenc
 [source,groovy,subs="attributes"]
 ----
 dependencies {
-    compile 'org.grails.plugins:rx-gorm-rest-client:{version}'
+    compile 'org.grails.plugins:rx-gorm-rest-client:{pluginVersion}'
 }
 ----
