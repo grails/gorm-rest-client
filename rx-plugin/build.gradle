@@ -9,6 +9,7 @@ dependencyManagement {
 }
 
 configurations.all {
+    exclude(group:'org.grails',module:'grails-datastore-simple')
     resolutionStrategy.eachDependency { DependencyResolveDetails details ->
         def requestedName = details.requested.name
         if(details.requested.group == 'org.grails' && requestedName.startsWith('grails-datastore')) {
