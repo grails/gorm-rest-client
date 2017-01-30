@@ -5,6 +5,8 @@ import grails.http.MediaType
 import groovy.json.StreamingJsonBuilder
 import groovy.transform.CompileDynamic
 import groovy.transform.CompileStatic
+import groovy.transform.stc.ClosureParams
+import groovy.transform.stc.SimpleType
 import groovy.util.logging.Slf4j
 import groovy.util.slurpersupport.GPathResult
 import groovy.xml.StreamingMarkupBuilder
@@ -123,10 +125,10 @@ class HttpClientRequestBuilder {
         header(HttpHeader.CONTENT_TYPE, MediaType.JSON)
         if (request instanceof HttpClientRequest) {
             request = ((HttpClientRequest) request).writeContent(
-                    createBodyWriter { Writer writer ->
-                        def jsonBuilder = new StreamingJsonBuilder(writer)
-                        jsonBuilder.call callable
-                    }
+                createBodyWriter { Writer writer ->
+                    def jsonBuilder = new StreamingJsonBuilder(writer)
+                    jsonBuilder.call callable
+                }
             )
         }
         else {
@@ -298,22 +300,77 @@ class HttpClientRequestBuilder {
         return this
     }
 
-//  TODO: re-enable these methods if RxNetty adds support for multipart uploads
-//    /**
-//     * Builds a form
-//     * @param formDefinition The form definition
-//     * @return this object
-//     */
-//    HttpClientRequestBuilder form(@DelegatesTo(FormDataBuilder) Closure formDefinition) {
-//        if(formDefinition != null) {
-//
-//            HttpPostRequestEncoder encoder = new HttpPostRequestEncoder(request, false)
-//            formDefinition.delegate = new FormDataBuilder(encoder, charset)
-//            formDefinition.call()
-//            wrapped = encoder.finalizeRequest()
-//        }
-//        return this
-//    }
+    /**
+     * Execute the given logic with receiving a write to write to
+     *
+     * @param callable The callable that accepts a BufferedWriter
+     * @return The builder
+     */
+    HttpClientRequestBuilder withBody(@ClosureParams(value=SimpleType.class, options="java.io.BufferedWriter") Closure callable) {
+        if (request instanceof HttpClientRequest) {
+            request = ((HttpClientRequest) request).writeContent(
+                createBodyWriter { Writer writer ->
+                    callable.call(new BufferedWriter(writer))
+                }
+            )
+        }
+        else {
+            throw new IllegalStateException("Body already written. Write the body last after setting any headers or request properties.")
+        }
+        return this
+    }
+    /**
+     * Builds a form
+     * @param formDefinition The form definition
+     * @return this object
+     */
+    HttpClientRequestBuilder form(@DelegatesTo(FormDataBuilder) Closure formDefinition) {
+        FormDataBuilder dataBuilder = new FormDataBuilder(charset)
+        if(formDefinition != null) {
+            formDefinition.delegate = dataBuilder
+            formDefinition.call()
+        }
+        StringBuilder builder = new StringBuilder()
+        Map<String, List<String>> formData = dataBuilder.multiValueMap
+        Iterator<String> nameIterator = formData.keySet().iterator()
+        while(nameIterator.hasNext()) {
+            String name = nameIterator.next()
+            List<String> values = formData.get(name)
+            builder.append(URLEncoder.encode(name, charset.name()));
+            if(values != null) {
+                Iterator<String> valueIterator = values.iterator()
+                while(valueIterator.hasNext()) {
+                    String value = valueIterator.next()
+
+                    if (value != null) {
+                        builder.append('=')
+                        builder.append(URLEncoder.encode(value, charset.name()))
+                        if (valueIterator.hasNext()) {
+                            builder.append('&')
+                        }
+                    }
+                }
+            }
+            if (nameIterator.hasNext()) {
+                builder.append('&')
+            }
+        }
+        String content = builder.toString()
+        header(HttpHeader.CONTENT_TYPE, MediaType.FORM)
+        header(HttpHeader.CONTENT_LENGTH, content.length())
+        if (request instanceof HttpClientRequest) {
+            request = ((HttpClientRequest) request).writeContent(
+                createBodyWriter { Writer writer ->
+                    writer.write(content)
+                }
+            )
+        }
+        else {
+            throw new IllegalStateException("Body already written. Write the body last after setting any headers or request properties.")
+        }
+
+        return this
+    }
 //
 //    /**
 //     * Builds a multipart form
@@ -352,147 +409,34 @@ class HttpClientRequestBuilder {
     }
 
     /**
-     * Helps with building multipart requests
+     * Builds form data
      */
-    static class MultipartBuilder extends FormDataBuilder {
-        static final List TEXT_TYPES = ['xml', 'json', 'txt', 'yml', 'csv', 'html', 'rss', 'hal', 'svg']
-        static final Map COMMON_CONTENT_TYPES = [
-                xml : 'application/xml',
-                json: 'application/json',
-                hal : 'application/hal+json',
-                rss : 'application/rss+xml',
-                yml : 'application/yml',
-                csv : 'text/csv',
-                css : 'text/css',
-                html: 'text/html',
-                txt : 'text/plain',
-                bin : 'application/octet-stream',
-                jpg : 'image/jpeg',
-                gif : 'image/gif',
-                png : 'image/png',
-                svg : 'image/svg+xml'
-        ]
-
-        MultipartBuilder(HttpPostRequestEncoder encoder, Charset charset) {
-            super(encoder, charset, true)
-        }
-
-        /**
-         * Adds a file to the request body for the given name
-         *
-         * @param name The name within the multpart body
-         * @param file The file itself
-         * @param contentType The content type of the file. Defaults to `text/plain` for text content if not specified
-         * @param isText Whether the file is text or binary
-         *
-         * @return This builder
-         */
-        FormDataBuilder file(String name, File file, String contentType = guessContentType(file.name), boolean isText = guessIsText(file.name)) {
-            encoder.addBodyFileUpload(name, file, contentType, isText)
-            return this
-        }
-
-        /**
-         * Adds a file to the request body for the given name, filename and bytes
-         * @param name The name within the multipart body
-         * @param filename The file name
-         * @param bytes The bytes of the file
-         * @param contentType The content type, defaults to 'application/octet-stream'
-         * @return This builder
-         */
-        FormDataBuilder file(String name, String filename, byte[] bytes, String contentType = guessContentType(filename, true)) {
-            def upload = new MemoryFileUpload(name, filename, contentType, "binary", null, bytes.length)
-            upload.setContent(Unpooled.wrappedBuffer(bytes))
-            encoder.addBodyHttpData(upload)
-            return this
-        }
-
-        /**
-         * Adds a file to the request body for the given name, filename and bytes
-         * @param name The name within the multipart body
-         * @param filename The file name
-         * @param bytes The bytes of the file as an input stream
-         * @param contentType The content type, defaults to 'application/octet-stream'
-         * @return This builder
-         */
-        FormDataBuilder file(String name, String filename, InputStream bytes, int length, String contentType = guessContentType(filename, true)) {
-            def upload = new MemoryFileUpload(name, filename, contentType, "binary", null, length)
-            upload.setContent(bytes)
-            encoder.addBodyHttpData(upload)
-            return this
-        }
-        /**
-         * Adds a file for the given name, filename and text
-         *
-         * @param name The name within the multipart body
-         * @param filename The name of the file
-         * @param body The body of the file as text
-         * @param contentType The content type, defaults to `text/plain`
-         * @param charset The charset
-         * @return This builder
-         */
-        FormDataBuilder file(String name, String filename, CharSequence body, String contentType = guessContentType(filename), Charset charset = this.charset) {
-            def upload = new MemoryFileUpload(name, filename, contentType, null, charset, body.length())
-            upload.setContent(Unpooled.copiedBuffer(body, charset))
-            encoder.addBodyHttpData(upload)
-            return this
-        }
-
-        protected String guessContentType(String filename, boolean binary = false) {
-            def i = filename.lastIndexOf('.')
-            String contentType = null
-            if (i > -1) {
-                contentType = COMMON_CONTENT_TYPES.get(filename.substring(i + 1))
-            }
-
-            if (contentType == null) {
-                return binary ? 'application/octet-stream' : 'text/plain'
-            } else {
-                return contentType
-            }
-        }
-
-        protected boolean guessIsText(String filename) {
-            def i = filename.lastIndexOf('.')
-            if (i > -1) {
-                return TEXT_TYPES.contains(filename.substring(i + 1))
-            }
-            return false
-        }
-
-        @Override
-        void setProperty(String property, Object newValue) {
-            if (multipart && newValue instanceof File) {
-                def f = (File) newValue
-                encoder.addBodyFileUpload(property, f, guessContentType(f.name), guessIsText(f.name))
-            } else {
-                super.setProperty(property, newValue)
-            }
-        }
-    }
-
     static class FormDataBuilder {
 
-        final HttpPostRequestEncoder encoder
+        final Map<String, List<String>> multiValueMap = new LinkedHashMap<String, List<String>>().withDefault {
+            []
+        }
+
         final boolean multipart
         final Charset charset
 
-        FormDataBuilder(HttpPostRequestEncoder encoder, Charset charset, boolean multipart = false) {
-            this.encoder = encoder
+        FormDataBuilder(Charset charset, boolean multipart = false) {
             this.multipart = multipart
             this.charset = charset
         }
 
         @Override
         void setProperty(String property, Object newValue) {
-            encoder.addBodyAttribute(property, newValue.toString())
+            if(newValue != null) {
+                multiValueMap.get(property).add(newValue.toString())
+            }
         }
 
         @Override
         @CompileDynamic
         Object invokeMethod(String name, Object args) {
             if (args && args.size() == 1) {
-                encoder.addBodyAttribute(name, args[0].toString())
+                setProperty(name, args[0].toString())
             }
             throw new MissingMethodException(name, getClass(), args)
         }

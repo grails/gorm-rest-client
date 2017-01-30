@@ -2,6 +2,7 @@ package grails.http.client
 
 import grails.http.HttpMethod
 import grails.http.HttpStatus
+import grails.http.MediaType
 import grails.http.client.test.TestRxHttpClientBuilder
 import groovy.transform.NotYetImplemented
 import rx.Observable
@@ -42,7 +43,6 @@ class RxHttpClientBuilderSpec extends Specification {
     }
 
 
-    @NotYetImplemented
     void "Test form submission"() {
         given:"A client"
         RxHttpClientBuilder client = new TestRxHttpClientBuilder()
@@ -50,9 +50,10 @@ class RxHttpClientBuilderSpec extends Specification {
         def mock = client.expect {
             uri('/foo/bar')
             method(HttpMethod.POST)
-            contentType('application/x-www-form-urlencoded')
+            contentType(MediaType.FORM)
             form {
                 foo = 'bar'
+                one = "two"
             }
         }.respond {
             ok()
@@ -62,6 +63,7 @@ class RxHttpClientBuilderSpec extends Specification {
         Observable<HttpClientResponse> p = client.post("${mock.serverURI()}/foo/bar") {
             form {
                 foo = "bar"
+                one = "two"
             }
         }
 

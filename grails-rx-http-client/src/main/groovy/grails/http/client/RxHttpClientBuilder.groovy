@@ -147,7 +147,7 @@ class RxHttpClientBuilder implements Closeable{
 
         SslContext sslCtx = buildSslContext(uriObject)
 
-        def address = createAddressForURI(uriObject)
+        InetSocketAddress address = createAddressForURI(uriObject)
         HttpClient client = HttpClient.newClient(connectionProviderFactory, Observable.just(new Host(address)))
                                         .readTimeOut(configuration.readTimeout, TimeUnit.MILLISECONDS)
 
