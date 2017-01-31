@@ -151,6 +151,10 @@ class RxHttpClientBuilder implements Closeable{
         HttpClient client = HttpClient.newClient(connectionProviderFactory, Observable.just(new Host(address)))
                                         .readTimeOut(configuration.readTimeout, TimeUnit.MILLISECONDS)
 
+        if(configuration.wireLogLevel != null) {
+            client = client.enableWireLogging( configuration.wireLogName, configuration.wireLogLevel )
+        }
+
         if(sslCtx != null) {
             client = client.secure({ ByteBufAllocator allocator ->
                 return sslCtx.newEngine(allocator)

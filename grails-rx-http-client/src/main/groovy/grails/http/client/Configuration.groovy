@@ -4,6 +4,7 @@ import groovy.transform.CompileStatic
 import io.netty.channel.ChannelHandler
 import io.netty.handler.codec.http.HttpClientCodec
 import io.netty.handler.codec.http.HttpVersion
+import io.netty.handler.logging.LogLevel
 import io.netty.handler.ssl.SslContext
 import io.netty.handler.ssl.SslProvider
 import io.netty.handler.ssl.util.InsecureTrustManagerFactory
@@ -20,6 +21,14 @@ import java.util.concurrent.ThreadFactory
 @CompileStatic
 trait Configuration {
 
+    /**
+     * The default wire log level
+     */
+    LogLevel wireLogLevel
+    /**
+     * The wire logger name
+     */
+    String wireLogName = "grails.http.client"
     /**
      * The encoding to use
      */
