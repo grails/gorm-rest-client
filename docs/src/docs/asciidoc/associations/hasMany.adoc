@@ -26,14 +26,17 @@ In this case by default a <<uriTemplates,URI template>> of `/book/{book}/authors
 package example
 
 import grails.gorm.rx.rest.*
+import static grails.gorm.rx.rest.mapping.MappingBuilder.*
 
 class Book implements RxRestEntity<Book> {
     String title
 
     static hasMany = [authors:Author]
 
-    static mapping = {
-        authors '/books/{book}/info/authors'
+    static mapping = endpoint {
+        authors property {
+            uri '/books/{book}/info/authors'
+        }
     }
 }
 ----

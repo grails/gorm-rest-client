@@ -25,14 +25,17 @@ You can however also configure an association to be eager by default:
 package example
 
 import grails.gorm.rx.rest.*
+import static grails.gorm.rx.rest.mapping.MappingBuilder.*
 
 class Book implements RxRestEntity<Book> {
     String title
 
     static hasMany = [authors:Author]
 
-    static mapping = {
-        authors fetch:"eager"
+    static mapping = endpoint {
+        authors property {
+            fetch 'eager'
+        }
     }
 }
 ----

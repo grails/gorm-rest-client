@@ -81,14 +81,17 @@ You can alter the <<uriTemplates,URI Template>> used by RxGORM to load the assoc
 package example
 
 import grails.gorm.rx.rest.*
+import static grails.gorm.rx.rest.mapping.MappingBuilder.*
 
 class Book implements RxRestEntity<Book> {
     String title
 
     Author author
 
-    static mapping = {
-        author uri:'/authors/{name}'
+    static mapping = endpoint {
+        authors property {
+            uri '/authors/{name}'
+        }
     }
 }
 ----
@@ -135,8 +138,10 @@ class Book implements RxRestEntity<Book> {
 
     static hasOne = [author:Author]
 
-    static mapping = {
-        author '/books/{book}/info/author'
+    static mapping = endpoint {
+        authors property {
+            uri '/books/{book}/info/author'
+        }
     }
 }
 ----

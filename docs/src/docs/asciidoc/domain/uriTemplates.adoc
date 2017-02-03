@@ -5,13 +5,14 @@ As mentioned previously, URIs are specified using the https://tools.ietf.org/htm
 package example
 
 import grails.gorm.rx.rest.*
+import static grails.gorm.rx.rest.mapping.MappingBuilder.*
 
 class Book implements RxRestEntity<Book> {
     String title
     String author
 
-    static mapping = {
-        id name:"title"
+    static mapping = endpoint {
+        id {  name "title" }
         uri "/authors/{author}/books{/title}"
     }
 }

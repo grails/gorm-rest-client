@@ -13,13 +13,18 @@ If the `id` of your REST endpoint is not numeric or a different property then yo
 
 [source,groovy]
 ----
+import static grails.gorm.rx.rest.mapping.MappingBuilder.*
+
 @Entity
 class Product implements RxRestEntity<Product> {
 
     String name
 
-    static mapping = {
-        id name:"name", generator:"assigned"
+    static mapping = endpoint {
+        id {
+            name "name"
+            generator "assigned"
+        }
     }
 }
 ----
