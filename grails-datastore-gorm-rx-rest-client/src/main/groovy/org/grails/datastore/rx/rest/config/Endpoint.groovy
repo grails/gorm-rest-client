@@ -20,7 +20,7 @@ import java.nio.charset.Charset
  */
 @CompileStatic
 @Builder(builderStrategy = SimpleStrategy, prefix = '')
-class Endpoint extends Entity {
+class Endpoint extends Entity<Attribute> {
     /**
      * The URI to the endpoint
      */

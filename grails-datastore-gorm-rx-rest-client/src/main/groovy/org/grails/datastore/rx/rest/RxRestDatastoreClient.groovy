@@ -231,6 +231,7 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient implements CodecsR
     RxRestDatastoreClient(ConnectionSources<ConnectionProviderFactory, RestConnectionSourceSettings> connectionSources, RestClientMappingContext mappingContext) {
         super(connectionSources, mappingContext)
 
+        mappingContext.setValidatorRegistry(new DefaultValidatorRegistry(mappingContext, connectionSources.defaultConnectionSource.settings))
         ConnectionSource<ConnectionProviderFactory, RestConnectionSourceSettings> defaultConnectionSource = connectionSources.defaultConnectionSource
         RestConnectionSourceSettings settings = defaultConnectionSource.settings
 
@@ -824,7 +825,6 @@ class RxRestDatastoreClient extends AbstractRxDatastoreClient implements CodecsR
     }
     protected static RestClientMappingContext createMappingContext(PropertyResolver configuration, Class... classes) {
         RestClientMappingContext mappingContext = new RestClientMappingContext(configuration, classes)
-        mappingContext.setValidatorRegistry(new DefaultValidatorRegistry(mappingContext, configuration))
         return mappingContext
     }
 
