@@ -16,17 +16,16 @@ buildscript {
 
 group "org.grails"
 version "1.1.0.BUILD-SNAPSHOT"
-// version "1.0.4.RELEASE"
 println "GORM VERSION = ${project.gormVersion}"
 
 ext {
     isTravisBuild = System.getenv().get("TRAVIS") == 'true'
-    rxNettyVersion = "0.5.2-rc.5"
+    rxNettyVersion = "0.5.2"
     nettyVersion = "4.1.5.Final"
-    grailsVersion = "3.2.4"
-    groovyVersion = "2.4.7"
+    grailsVersion = "3.2.7"
+    groovyVersion = "2.4.9"
     springBootVersion = "1.4.4.RELEASE"
-    springVersion = "4.3.6.RELEASE"
+    springVersion = "4.3.7.RELEASE"
     hibernatePluginVersion = gormVersion - '.RELEASE'
     pluginVersion = project.version - '.RELEASE'
     isCiBuild = project.hasProperty("isCiBuild")
@@ -49,7 +48,13 @@ subprojects { project ->
     if(project.name.startsWith("examples")) {
         apply plugin:"org.grails.grails-web"
         apply plugin:"org.grails.grails-gsp"
-
+        configurations.all {
+            resolutionStrategy.eachDependency { DependencyResolveDetails details ->
+                if(details.requested.group == 'org.codehaus.groovy' && details.requested.name.startsWith('groovy')) {
+                    details.useVersion(groovyVersion)   
+                }
+            }
+        } 
         return
     }
 
