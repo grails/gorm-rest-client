@@ -1,3 +1,5 @@
+package functional
+
 class UrlMappings {
 
     static mappings = {

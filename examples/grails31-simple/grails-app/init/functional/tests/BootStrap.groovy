@@ -1,3 +1,5 @@
+package functional.tests
+
 import functional.tests.*
 
 class BootStrap {
