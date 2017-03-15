@@ -6,7 +6,7 @@ include "grails-http-core",
 include "rx-plugin"
 
 // examples
-include "examples/grails31-simple"
+include "examples/grails3-simple"
 
 // docs
 include "docs"
