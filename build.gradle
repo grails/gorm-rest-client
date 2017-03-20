@@ -24,7 +24,7 @@ ext {
     rxNettyVersion = "0.5.2"
     nettyVersion = "4.1.5.Final"
     grailsVersion = "3.2.7"
-    groovyVersion = "2.4.7"
+    groovyVersion = "2.4.10"
     springBootVersion = "1.4.4.RELEASE"
     springVersion = "4.3.7.RELEASE"
     hibernatePluginVersion = gormVersion - '.RELEASE'
