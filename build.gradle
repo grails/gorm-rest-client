@@ -15,8 +15,8 @@ buildscript {
 
 
 group "org.grails"
-version "1.1.0.BUILD-SNAPSHOT"
-// version "1.1.0.RC1"
+// version "1.1.0.BUILD-SNAPSHOT"
+version "1.1.0.RC2"
 println "GORM VERSION = ${project.gormVersion}"
 
 ext {
@@ -25,7 +25,7 @@ ext {
     nettyVersion = "4.1.5.Final"
     grailsVersion = "3.2.7"
     groovyVersion = "2.4.10"
-    springBootVersion = "1.4.4.RELEASE"
+    springBootVersion = "1.4.5.RELEASE"
     springVersion = "4.3.7.RELEASE"
     hibernatePluginVersion = gormVersion - '.RELEASE'
     pluginVersion = project.version - '.RELEASE'
