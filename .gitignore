@@ -3,6 +3,7 @@
 build/
 target/
 *.zip
+*.db
 grails2-plugin/plugins/
 
 # Ignore Gradle GUI config
