@@ -13,7 +13,7 @@ configurations.all {
     resolutionStrategy.eachDependency { DependencyResolveDetails details ->
         def requestedName = details.requested.name
         if(details.requested.group == 'org.grails' && requestedName.startsWith('grails-datastore')) {
-            if(requestedName != 'grails-datastore-gorm-rx-rest-client') {
+            if(requestedName != 'grails-datastore-gorm-rx-rest-client' && !requestedName.contains( '-bson')) {
                 details.useVersion(gormVersion)
             }
         }
