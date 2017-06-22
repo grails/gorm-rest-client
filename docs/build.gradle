@@ -9,9 +9,12 @@ ext {
             'core',
             'gorm',
             'gorm-rx',
-            'gorm-bson',
-            'gorm-rx-bson',
             'gorm-plugin-support'
+    ]
+
+    bsonProjects = [
+            'gorm-bson',
+            'gorm-rx-bson'    
     ]
 
 }
@@ -26,6 +29,10 @@ dependencies {
     for(p in coreProjects) {
         documentation "org.grails:grails-datastore-$p:$gormVersion"
     }
+    for(p in bsonProjects) {
+        documentation "org.grails:grails-datastore-$p:$gormBsonVersion"
+    }    
+    
     project.rootProject.subprojects.each { subproject ->
         if(subproject.name != "docs" && !subproject.name.startsWith("examples/")) {
             documentation project(":$subproject.name")
